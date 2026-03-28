@@ -44,6 +44,14 @@ export const MPS_EVENTS = {
   LISTING_SEEN: 'listing:seen',
   /** Saved search loaded */
   SEARCH_LOADED: 'search:loaded',
+  /** New notification generated */
+  NOTIFICATION_NEW: 'notification:new',
+  /** Notification read/dismissed */
+  NOTIFICATION_READ: 'notification:read',
+  /** All notifications cleared */
+  NOTIFICATION_CLEAR: 'notification:clear',
+  /** Selector health check completed */
+  SELECTOR_HEALTH_CHECKED: 'selector:health-checked',
 } as const;
 
 /**
