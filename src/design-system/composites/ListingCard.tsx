@@ -10,7 +10,7 @@
 
 import React from 'react';
 import type { Listing } from '@/core/models/listing';
-import type { PriceRatingTier, PRICE_RATING_INFO } from '@/core/analysis/price-rater';
+import type { PriceRatingTier } from '@/core/analysis/price-rater';
 import { TrustBadge } from '@/design-system/composites/TrustBadge';
 import { PriceRatingBadge } from '@/design-system/composites/PriceRatingBadge';
 import { HeatIndicator } from '@/design-system/composites/HeatIndicator';

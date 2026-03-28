@@ -8,7 +8,8 @@
 import React, { useState, useMemo } from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { ForecastIndicator } from '@/design-system/composites/ForecastIndicator';
-import { ConfidenceBar } from '@/design-system/composites/ConfidenceBar';
+// ConfidenceBar available for future per-listing confidence display
+// import { ConfidenceBar } from '@/design-system/composites/ConfidenceBar';
 
 /** A listing's forecast data for display. */
 interface ForecastEntry {

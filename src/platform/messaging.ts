@@ -48,7 +48,7 @@ export interface MessageEnvelope<A extends string = string, P = unknown> {
  * }
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface MessageDefinitions {
   // Extended via declaration merging in consumer modules.
 }

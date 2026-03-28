@@ -33,6 +33,7 @@ import { SELECTORS, queryFirst, queryAllFirst } from "@/content/selectors.config
 const ITEM_ID_PATTERN = /\/marketplace\/item\/(\d+)/;
 
 /** Pattern to extract a seller profile ID from a URL. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for future seller profile parsing
 const SELLER_ID_PATTERN = /\/marketplace\/profile\/(\d+)/;
 
 /** Map of raw condition text to normalized condition values. */

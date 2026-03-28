@@ -61,7 +61,7 @@ const LOG_PREFIX = "[MPS]";
 // ---------------------------------------------------------------------------
 
 /** All listings the extension has parsed during this page session. */
-let knownListings: Map<string, Listing> = new Map();
+const knownListings: Map<string, Listing> = new Map();
 
 /** Currently active filter configs. */
 let activeFilters: Map<string, Record<string, unknown>> = new Map();
@@ -251,7 +251,7 @@ function applyFiltersAndSort(
   filterEngine: FilterEngine,
   sortEngine: SortEngine,
   manipulator: DomManipulator,
-  _injector: DomInjector,
+  _injector: DomInjector, // eslint-disable-line @typescript-eslint/no-unused-vars
 ): void {
   try {
     const allListings = Array.from(knownListings.values());

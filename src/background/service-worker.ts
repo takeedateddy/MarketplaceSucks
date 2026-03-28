@@ -6,7 +6,7 @@
  * @module service-worker
  */
 
-import browser from 'webextension-polyfill';
+import { browser } from '@/platform/browser';
 
 /** Message types for inter-component communication */
 interface ExtensionMessage {
