@@ -1,0 +1,292 @@
+/**
+ * @module content/dom-injector
+ *
+ * Injects MarketplaceSucks UI elements into the Facebook Marketplace page:
+ * sidebar container, toggle button, listing badges, and preview panel.
+ *
+ * All injected elements use `mps-` prefixed CSS classes and `data-mps-*`
+ * attributes to avoid collisions with Facebook's own styles and to make
+ * the extension's DOM footprint easy to identify and clean up.
+ *
+ * @example
+ * ```ts
+ * import { DomInjector } from "@/content/dom-injector";
+ *
+ * const injector = new DomInjector();
+ * injector.injectSidebar();
+ * injector.injectToggleButton();
+ * ```
+ */
+
+/** Badge descriptor passed to {@link DomInjector.injectBadge}. */
+export interface BadgeDescriptor {
+  /** Badge type, used for CSS class selection. */
+  readonly type: "trust" | "price" | "heat" | "image";
+  /** Severity / rating level within the type. */
+  readonly level: string;
+  /** Short text displayed inside the badge. */
+  readonly label: string;
+  /** Optional tooltip text shown on hover. */
+  readonly tooltip?: string;
+}
+
+/** IDs for top-level injected containers. */
+const ELEMENT_IDS = {
+  sidebar: "mps-sidebar",
+  sidebarToggle: "mps-sidebar-toggle",
+  previewPanel: "mps-preview-panel",
+  comparisonBar: "mps-comparison-bar",
+  styleSheet: "mps-content-styles",
+} as const;
+
+/**
+ * Injects and manages MarketplaceSucks UI elements within the Facebook
+ * Marketplace page DOM.
+ */
+export class DomInjector {
+  /**
+   * Inject the sidebar container into the page.
+   *
+   * The sidebar hosts filter controls, sort options, and analytics panels.
+   * If the sidebar already exists it is returned without creating a duplicate.
+   *
+   * @returns The sidebar container element, or `null` if injection failed.
+   */
+  injectSidebar(): HTMLElement | null {
+    try {
+      const existing = document.getElementById(ELEMENT_IDS.sidebar);
+      if (existing) return existing;
+
+      const sidebar = document.createElement("div");
+      sidebar.id = ELEMENT_IDS.sidebar;
+      sidebar.className = "mps-sidebar";
+      sidebar.setAttribute("data-mps-component", "sidebar");
+      sidebar.setAttribute("role", "complementary");
+      sidebar.setAttribute("aria-label", "MarketplaceSucks filters and tools");
+
+      // Header
+      const header = document.createElement("div");
+      header.className = "mps-sidebar-header";
+      header.setAttribute("data-mps-part", "sidebar-header");
+
+      const title = document.createElement("h2");
+      title.className = "mps-sidebar-title";
+      title.textContent = "MarketplaceSucks";
+
+      const closeBtn = document.createElement("button");
+      closeBtn.className = "mps-sidebar-close";
+      closeBtn.setAttribute("data-mps-action", "close-sidebar");
+      closeBtn.setAttribute("aria-label", "Close sidebar");
+      closeBtn.textContent = "\u00D7";
+
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+      sidebar.appendChild(header);
+
+      // Content area (to be populated by UI components)
+      const content = document.createElement("div");
+      content.className = "mps-sidebar-content";
+      content.setAttribute("data-mps-part", "sidebar-content");
+      sidebar.appendChild(content);
+
+      document.body.appendChild(sidebar);
+      return sidebar;
+    } catch (err) {
+      console.warn("[MPS] Failed to inject sidebar:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Inject the floating toggle button used to open/close the sidebar.
+   *
+   * @returns The toggle button element, or `null` if injection failed.
+   */
+  injectToggleButton(): HTMLElement | null {
+    try {
+      const existing = document.getElementById(ELEMENT_IDS.sidebarToggle);
+      if (existing) return existing;
+
+      const button = document.createElement("button");
+      button.id = ELEMENT_IDS.sidebarToggle;
+      button.className = "mps-sidebar-toggle";
+      button.setAttribute("data-mps-component", "sidebar-toggle");
+      button.setAttribute("aria-label", "Toggle MarketplaceSucks sidebar");
+      button.setAttribute("title", "MarketplaceSucks");
+
+      // Icon: a small filter/funnel glyph
+      const icon = document.createElement("span");
+      icon.className = "mps-toggle-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>`;
+
+      button.appendChild(icon);
+      document.body.appendChild(button);
+      return button;
+    } catch (err) {
+      console.warn("[MPS] Failed to inject toggle button:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Inject one or more badge overlays onto a listing card element.
+   *
+   * Badges indicate trust scores, price ratings, heat levels, or image
+   * analysis results. Each badge is positioned as an overlay within the
+   * listing card.
+   *
+   * @param listingElement - The listing card DOM element to decorate.
+   * @param badges - Array of badge descriptors to inject.
+   */
+  injectBadge(listingElement: Element, badges: BadgeDescriptor[]): void {
+    try {
+      // Remove any existing badges on this element
+      const existingContainer = listingElement.querySelector("[data-mps-part='badge-container']");
+      if (existingContainer) {
+        existingContainer.remove();
+      }
+
+      if (badges.length === 0) return;
+
+      const container = document.createElement("div");
+      container.className = "mps-badge-container";
+      container.setAttribute("data-mps-part", "badge-container");
+
+      for (const badge of badges) {
+        const badgeEl = document.createElement("span");
+        badgeEl.className = `mps-badge mps-badge-${badge.type}-${badge.level}`;
+        badgeEl.setAttribute("data-mps-badge-type", badge.type);
+        badgeEl.setAttribute("data-mps-badge-level", badge.level);
+        badgeEl.textContent = badge.label;
+
+        if (badge.tooltip) {
+          badgeEl.setAttribute("title", badge.tooltip);
+          badgeEl.setAttribute("aria-label", badge.tooltip);
+        }
+
+        container.appendChild(badgeEl);
+      }
+
+      // Ensure the listing element can contain absolutely-positioned children
+      if (listingElement instanceof HTMLElement) {
+        const position = getComputedStyle(listingElement).position;
+        if (position === "static") {
+          listingElement.style.position = "relative";
+        }
+      }
+
+      listingElement.appendChild(container);
+    } catch (err) {
+      console.warn("[MPS] Failed to inject badge:", err);
+    }
+  }
+
+  /**
+   * Inject the preview panel used for quick-view of listing details.
+   *
+   * The panel slides in from the right when a user hovers or clicks a
+   * listing card while holding a modifier key.
+   *
+   * @returns The preview panel element, or `null` if injection failed.
+   */
+  injectPreviewPanel(): HTMLElement | null {
+    try {
+      const existing = document.getElementById(ELEMENT_IDS.previewPanel);
+      if (existing) return existing;
+
+      const panel = document.createElement("div");
+      panel.id = ELEMENT_IDS.previewPanel;
+      panel.className = "mps-preview-panel";
+      panel.setAttribute("data-mps-component", "preview-panel");
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-label", "Listing preview");
+      panel.setAttribute("aria-hidden", "true");
+
+      // Close button
+      const closeBtn = document.createElement("button");
+      closeBtn.className = "mps-preview-close";
+      closeBtn.setAttribute("data-mps-action", "close-preview");
+      closeBtn.setAttribute("aria-label", "Close preview");
+      closeBtn.textContent = "\u00D7";
+      panel.appendChild(closeBtn);
+
+      // Content area
+      const content = document.createElement("div");
+      content.className = "mps-preview-content";
+      content.setAttribute("data-mps-part", "preview-content");
+      panel.appendChild(content);
+
+      document.body.appendChild(panel);
+      return panel;
+    } catch (err) {
+      console.warn("[MPS] Failed to inject preview panel:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Inject the comparison bar at the bottom of the viewport.
+   *
+   * The comparison bar holds thumbnails of listings the user has selected
+   * for side-by-side comparison.
+   *
+   * @returns The comparison bar element, or `null` if injection failed.
+   */
+  injectComparisonBar(): HTMLElement | null {
+    try {
+      const existing = document.getElementById(ELEMENT_IDS.comparisonBar);
+      if (existing) return existing;
+
+      const bar = document.createElement("div");
+      bar.id = ELEMENT_IDS.comparisonBar;
+      bar.className = "mps-comparison-bar";
+      bar.setAttribute("data-mps-component", "comparison-bar");
+      bar.setAttribute("role", "toolbar");
+      bar.setAttribute("aria-label", "Listing comparison");
+      bar.setAttribute("aria-hidden", "true");
+
+      // Slot for comparison items
+      const items = document.createElement("div");
+      items.className = "mps-comparison-items";
+      items.setAttribute("data-mps-part", "comparison-items");
+      bar.appendChild(items);
+
+      // Compare button
+      const compareBtn = document.createElement("button");
+      compareBtn.className = "mps-comparison-action";
+      compareBtn.setAttribute("data-mps-action", "compare");
+      compareBtn.textContent = "Compare";
+      compareBtn.disabled = true;
+      bar.appendChild(compareBtn);
+
+      document.body.appendChild(bar);
+      return bar;
+    } catch (err) {
+      console.warn("[MPS] Failed to inject comparison bar:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Remove all MarketplaceSucks-injected elements from the page.
+   *
+   * Useful during cleanup or when navigating away from Marketplace.
+   */
+  removeAll(): void {
+    try {
+      const injectedElements = document.querySelectorAll("[data-mps-component]");
+      for (const el of Array.from(injectedElements)) {
+        el.remove();
+      }
+
+      // Also remove badge containers within listing cards
+      const badges = document.querySelectorAll("[data-mps-part='badge-container']");
+      for (const el of Array.from(badges)) {
+        el.remove();
+      }
+    } catch (err) {
+      console.warn("[MPS] Error during DOM cleanup:", err);
+    }
+  }
+}

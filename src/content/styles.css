@@ -1,0 +1,439 @@
+/**
+ * @module content/styles
+ *
+ * Injected CSS styles for MarketplaceSucks content script UI elements.
+ *
+ * All classes are prefixed with `mps-` and all CSS custom properties
+ * with `--mps-` to avoid collisions with Facebook's own styles.
+ *
+ * Visual values reference the design-system tokens via --mps-* custom
+ * properties injected by css-variables.ts at runtime.
+ */
+
+/* ==========================================================================
+   CSS Custom Property Fallbacks
+   These are only used if the design-system token injection has not run yet.
+   ========================================================================== */
+
+:root {
+  --mps-sidebar-width: 360px;
+  --mps-sidebar-bg: var(--mps-color-surface, #ffffff);
+  --mps-sidebar-text: var(--mps-color-text-primary, #1c1e21);
+  --mps-sidebar-border: var(--mps-color-border, #ced0d4);
+  --mps-sidebar-header-bg: var(--mps-color-surface-elevated, #ffffff);
+  --mps-toggle-bg: var(--mps-color-primary, #0866ff);
+  --mps-toggle-text: #ffffff;
+  --mps-toggle-size: 44px;
+  --mps-badge-font-size: 11px;
+  --mps-badge-padding: 2px 6px;
+  --mps-badge-radius: var(--mps-radius-sm, 4px);
+  --mps-preview-width: 420px;
+  --mps-preview-bg: var(--mps-color-surface-elevated, #ffffff);
+  --mps-comparison-height: 80px;
+  --mps-comparison-bg: var(--mps-color-surface-elevated, #ffffff);
+  --mps-dimmed-opacity: 0.45;
+  --mps-transition-speed: var(--mps-duration-normal, 200ms);
+  --mps-transition-easing: var(--mps-easing-standard, ease-in-out);
+}
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+
+.mps-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: var(--mps-sidebar-width);
+  height: 100vh;
+  background: var(--mps-sidebar-bg);
+  color: var(--mps-sidebar-text);
+  border-left: 1px solid var(--mps-sidebar-border);
+  box-shadow: var(--mps-shadow-lg, -4px 0 12px rgba(0, 0, 0, 0.1));
+  z-index: var(--mps-z-sidebar, 10000);
+  overflow-y: auto;
+  overflow-x: hidden;
+  transform: translateX(100%);
+  transition: transform var(--mps-transition-speed) var(--mps-transition-easing);
+  font-family: var(--mps-font-family-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-size: var(--mps-font-size-sm, 14px);
+  line-height: var(--mps-line-height-normal, 1.5);
+  box-sizing: border-box;
+}
+
+.mps-sidebar[data-mps-open="true"] {
+  transform: translateX(0);
+}
+
+.mps-sidebar-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--mps-spacing-md, 12px) var(--mps-spacing-lg, 16px);
+  background: var(--mps-sidebar-header-bg);
+  border-bottom: 1px solid var(--mps-sidebar-border);
+  z-index: 1;
+}
+
+.mps-sidebar-title {
+  margin: 0;
+  font-size: var(--mps-font-size-lg, 18px);
+  font-weight: var(--mps-font-weight-semibold, 600);
+  color: var(--mps-sidebar-text);
+}
+
+.mps-sidebar-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--mps-radius-full, 50%);
+  background: transparent;
+  color: var(--mps-color-text-secondary, #65676b);
+  font-size: 20px;
+  cursor: pointer;
+  transition: background var(--mps-transition-speed) var(--mps-transition-easing);
+}
+
+.mps-sidebar-close:hover {
+  background: var(--mps-color-background, #f0f2f5);
+}
+
+.mps-sidebar-content {
+  padding: var(--mps-spacing-md, 12px) var(--mps-spacing-lg, 16px);
+}
+
+/* ==========================================================================
+   Sidebar Toggle Button
+   ========================================================================== */
+
+.mps-sidebar-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: var(--mps-toggle-size);
+  height: var(--mps-toggle-size);
+  border: none;
+  border-radius: var(--mps-radius-full, 50%);
+  background: var(--mps-toggle-bg);
+  color: var(--mps-toggle-text);
+  box-shadow: var(--mps-shadow-md, 0 2px 8px rgba(0, 0, 0, 0.15));
+  cursor: pointer;
+  z-index: var(--mps-z-sidebar, 10000);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background var(--mps-transition-speed) var(--mps-transition-easing),
+    transform var(--mps-transition-speed) var(--mps-transition-easing),
+    box-shadow var(--mps-transition-speed) var(--mps-transition-easing);
+}
+
+.mps-sidebar-toggle:hover {
+  background: var(--mps-color-primary-hover, #0654d4);
+  transform: scale(1.08);
+  box-shadow: var(--mps-shadow-lg, 0 4px 12px rgba(0, 0, 0, 0.2));
+}
+
+.mps-sidebar-toggle:active {
+  transform: scale(0.95);
+}
+
+.mps-toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mps-toggle-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ==========================================================================
+   Listing Badges
+   ========================================================================== */
+
+.mps-badge-container {
+  position: absolute;
+  top: var(--mps-spacing-xs, 4px);
+  left: var(--mps-spacing-xs, 4px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mps-spacing-xxs, 2px);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.mps-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--mps-badge-padding);
+  border-radius: var(--mps-badge-radius);
+  font-size: var(--mps-badge-font-size);
+  font-weight: var(--mps-font-weight-semibold, 600);
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: default;
+  backdrop-filter: blur(4px);
+  user-select: none;
+}
+
+/* --- Trust badges --- */
+
+.mps-badge-trust-high {
+  background: var(--mps-color-trust-high, #31a24c);
+  color: #ffffff;
+}
+
+.mps-badge-trust-moderate {
+  background: var(--mps-color-trust-moderate, #f7b928);
+  color: #1c1e21;
+}
+
+.mps-badge-trust-caution {
+  background: var(--mps-color-trust-caution, #f5a623);
+  color: #1c1e21;
+}
+
+.mps-badge-trust-low {
+  background: var(--mps-color-trust-low, #e02c2c);
+  color: #ffffff;
+}
+
+/* --- Price badges --- */
+
+.mps-badge-price-steal {
+  background: var(--mps-color-price-steal, #0b8a00);
+  color: #ffffff;
+}
+
+.mps-badge-price-great {
+  background: var(--mps-color-price-great, #31a24c);
+  color: #ffffff;
+}
+
+.mps-badge-price-good {
+  background: var(--mps-color-price-good, #57b85a);
+  color: #ffffff;
+}
+
+.mps-badge-price-fair {
+  background: var(--mps-color-price-fair, #f7b928);
+  color: #1c1e21;
+}
+
+.mps-badge-price-above {
+  background: var(--mps-color-price-above, #f5a623);
+  color: #1c1e21;
+}
+
+.mps-badge-price-high {
+  background: var(--mps-color-price-high, #e86c00);
+  color: #ffffff;
+}
+
+.mps-badge-price-over {
+  background: var(--mps-color-price-over, #e02c2c);
+  color: #ffffff;
+}
+
+/* --- Heat badges --- */
+
+.mps-badge-heat-warm {
+  background: var(--mps-color-heat-warm, #f5a623);
+  color: #1c1e21;
+}
+
+.mps-badge-heat-hot {
+  background: var(--mps-color-heat-hot, #e86c00);
+  color: #ffffff;
+}
+
+.mps-badge-heat-fire {
+  background: var(--mps-color-heat-fire, #e02c2c);
+  color: #ffffff;
+}
+
+/* --- Image badges --- */
+
+.mps-badge-image-stock {
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+}
+
+.mps-badge-image-low {
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+}
+
+.mps-badge-image-multiple {
+  background: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   Listing Visibility States
+   ========================================================================== */
+
+.mps-listing-hidden {
+  display: none !important;
+}
+
+.mps-listing-dimmed {
+  opacity: var(--mps-dimmed-opacity) !important;
+  transition: opacity var(--mps-transition-speed) var(--mps-transition-easing);
+}
+
+.mps-listing-dimmed:hover {
+  opacity: 0.85 !important;
+}
+
+/* ==========================================================================
+   Preview Panel
+   ========================================================================== */
+
+.mps-preview-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: var(--mps-preview-width);
+  height: 100vh;
+  background: var(--mps-preview-bg);
+  color: var(--mps-sidebar-text);
+  box-shadow: var(--mps-shadow-lg, -4px 0 12px rgba(0, 0, 0, 0.15));
+  z-index: var(--mps-z-modal, 10001);
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform var(--mps-transition-speed) var(--mps-transition-easing);
+  box-sizing: border-box;
+}
+
+.mps-preview-panel[aria-hidden="false"] {
+  transform: translateX(0);
+}
+
+.mps-preview-close {
+  position: absolute;
+  top: var(--mps-spacing-sm, 8px);
+  right: var(--mps-spacing-sm, 8px);
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--mps-radius-full, 50%);
+  background: transparent;
+  color: var(--mps-color-text-secondary, #65676b);
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.mps-preview-close:hover {
+  background: var(--mps-color-background, #f0f2f5);
+}
+
+.mps-preview-content {
+  padding: var(--mps-spacing-xl, 24px) var(--mps-spacing-lg, 16px);
+}
+
+/* ==========================================================================
+   Comparison Bar
+   ========================================================================== */
+
+.mps-comparison-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--mps-comparison-height);
+  background: var(--mps-comparison-bg);
+  border-top: 1px solid var(--mps-sidebar-border);
+  box-shadow: var(--mps-shadow-md, 0 -2px 8px rgba(0, 0, 0, 0.1));
+  z-index: var(--mps-z-sidebar, 10000);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--mps-spacing-lg, 16px);
+  gap: var(--mps-spacing-md, 12px);
+  transform: translateY(100%);
+  transition: transform var(--mps-transition-speed) var(--mps-transition-easing);
+  box-sizing: border-box;
+}
+
+.mps-comparison-bar[aria-hidden="false"] {
+  transform: translateY(0);
+}
+
+.mps-comparison-items {
+  display: flex;
+  align-items: center;
+  gap: var(--mps-spacing-sm, 8px);
+  flex: 1;
+  overflow-x: auto;
+}
+
+.mps-comparison-action {
+  flex-shrink: 0;
+  padding: var(--mps-spacing-sm, 8px) var(--mps-spacing-lg, 16px);
+  border: none;
+  border-radius: var(--mps-radius-md, 6px);
+  background: var(--mps-toggle-bg);
+  color: var(--mps-toggle-text);
+  font-size: var(--mps-font-size-sm, 14px);
+  font-weight: var(--mps-font-weight-semibold, 600);
+  cursor: pointer;
+  transition: background var(--mps-transition-speed) var(--mps-transition-easing);
+}
+
+.mps-comparison-action:hover:not(:disabled) {
+  background: var(--mps-color-primary-hover, #0654d4);
+}
+
+.mps-comparison-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Detail Page Enhancements
+   ========================================================================== */
+
+.mps-related-listings,
+.mps-price-analysis {
+  margin: var(--mps-spacing-lg, 16px) 0;
+  padding: var(--mps-spacing-lg, 16px);
+  background: var(--mps-sidebar-bg);
+  border: 1px solid var(--mps-sidebar-border);
+  border-radius: var(--mps-radius-lg, 8px);
+  box-sizing: border-box;
+}
+
+.mps-related-header,
+.mps-price-header {
+  margin-bottom: var(--mps-spacing-md, 12px);
+}
+
+.mps-related-title,
+.mps-price-title {
+  margin: 0;
+  font-size: var(--mps-font-size-md, 16px);
+  font-weight: var(--mps-font-weight-semibold, 600);
+  color: var(--mps-sidebar-text);
+}
+
+.mps-related-loading,
+.mps-price-loading {
+  color: var(--mps-color-text-secondary, #65676b);
+  font-size: var(--mps-font-size-sm, 14px);
+  font-style: italic;
+}
+
+.mps-related-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--mps-spacing-md, 12px);
+}
