@@ -7,6 +7,7 @@
 
 import type { ISorter, SortDirection } from '@/core/interfaces/sorter.interface';
 import type { Listing } from '@/core/models/listing';
+import type { AnalyzedListing } from '@/core/models/analyzed-listing';
 
 /** Helper to apply direction to a comparison result */
 function directed(cmp: number, direction: SortDirection): number {
@@ -22,7 +23,7 @@ export class PriceSorter implements ISorter {
   readonly defaultDirection: SortDirection = 'asc';
 
   sort(a: Listing, b: Listing, direction: SortDirection): number {
-    return directed(a.price - b.price, direction);
+    return directed((a.price ?? 0) - (b.price ?? 0), direction);
   }
 }
 
@@ -35,8 +36,8 @@ export class DateSorter implements ISorter {
   readonly defaultDirection: SortDirection = 'desc';
 
   sort(a: Listing, b: Listing, direction: SortDirection): number {
-    const dateA = a.parsedDate?.getTime() ?? 0;
-    const dateB = b.parsedDate?.getTime() ?? 0;
+    const dateA = a.parsedDate ?? 0;
+    const dateB = b.parsedDate ?? 0;
     return directed(dateA - dateB, direction);
   }
 }
@@ -78,8 +79,10 @@ export class SellerTrustSorter implements ISorter {
   readonly defaultDirection: SortDirection = 'desc';
 
   sort(a: Listing, b: Listing, direction: SortDirection): number {
-    const trustA = a.sellerTrustScore ?? 50;
-    const trustB = b.sellerTrustScore ?? 50;
+    const aa = a as AnalyzedListing;
+    const bb = b as AnalyzedListing;
+    const trustA = aa.sellerTrustScore ?? 50;
+    const trustB = bb.sellerTrustScore ?? 50;
     return directed(trustA - trustB, direction);
   }
 }
@@ -94,8 +97,10 @@ export class PriceRatingSorter implements ISorter {
   readonly defaultDirection: SortDirection = 'asc';
 
   sort(a: Listing, b: Listing, direction: SortDirection): number {
-    const ratingA = a.priceRatingScore ?? 100;
-    const ratingB = b.priceRatingScore ?? 100;
+    const aa = a as AnalyzedListing;
+    const bb = b as AnalyzedListing;
+    const ratingA = aa.priceRatingScore ?? 100;
+    const ratingB = bb.priceRatingScore ?? 100;
     return directed(ratingA - ratingB, direction);
   }
 }
@@ -109,8 +114,10 @@ export class HeatSorter implements ISorter {
   readonly defaultDirection: SortDirection = 'desc';
 
   sort(a: Listing, b: Listing, direction: SortDirection): number {
-    const heatA = a.heatScore ?? 0;
-    const heatB = b.heatScore ?? 0;
+    const aa = a as AnalyzedListing;
+    const bb = b as AnalyzedListing;
+    const heatA = aa.heatScore ?? 0;
+    const heatB = bb.heatScore ?? 0;
     return directed(heatA - heatB, direction);
   }
 }
@@ -124,8 +131,10 @@ export class SellingSpeedSorter implements ISorter {
   readonly defaultDirection: SortDirection = 'asc';
 
   sort(a: Listing, b: Listing, direction: SortDirection): number {
-    const speedA = a.estimatedDaysToSell ?? Infinity;
-    const speedB = b.estimatedDaysToSell ?? Infinity;
+    const aa = a as AnalyzedListing;
+    const bb = b as AnalyzedListing;
+    const speedA = aa.estimatedDaysToSell ?? Infinity;
+    const speedB = bb.estimatedDaysToSell ?? Infinity;
     return directed(speedA - speedB, direction);
   }
 }

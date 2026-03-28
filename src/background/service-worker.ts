@@ -51,8 +51,10 @@ browser.runtime.onInstalled.addListener((details) => {
  * Handle messages from content scripts and popup.
  */
 browser.runtime.onMessage.addListener(
-  (message: ExtensionMessage, sender): Promise<unknown> | undefined => {
-    switch (message.action) {
+  (message: unknown, sender: browser.Runtime.MessageSender): Promise<unknown> | undefined => {
+    const msg = message as ExtensionMessage;
+    const _sender = sender;
+    switch (msg.action) {
       case 'get-settings':
         return browser.storage.local.get('mps-settings').then((result) => {
           return result['mps-settings'] ?? null;
@@ -60,7 +62,7 @@ browser.runtime.onMessage.addListener(
 
       case 'save-settings':
         return browser.storage.local.set({
-          'mps-settings': message.payload,
+          'mps-settings': msg.payload,
         });
 
       case 'get-stats':
@@ -89,7 +91,7 @@ browser.runtime.onMessage.addListener(
         }) as Promise<unknown>;
 
       default:
-        console.log(`[MPS] Unknown message action: ${message.action}`, sender);
+        console.log(`[MPS] Unknown message action: ${msg.action}`, _sender);
         return undefined;
     }
   },

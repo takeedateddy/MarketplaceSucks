@@ -6,16 +6,16 @@
  */
 
 import { useState } from 'react';
-import type { Listing } from '@/core/models/listing';
+import type { AnalyzedListing } from '@/core/models/analyzed-listing';
 
 interface ListingPreviewProps {
   /** The listing to preview */
-  listing: Listing;
+  listing: AnalyzedListing;
   /** Position to render the preview */
   position: { top: number; left: number };
   /** Quick actions */
   onHide: (id: string) => void;
-  onCompare: (listing: Listing) => void;
+  onCompare: (listing: AnalyzedListing) => void;
   onOpenInNewTab: (url: string) => void;
 }
 
@@ -94,7 +94,7 @@ export function ListingPreview({
         </h3>
 
         <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--mps-color-primary, #e04f5f)', margin: '0 0 8px' }}>
-          {listing.price === 0 ? 'Free' : `$${listing.price.toFixed(0)}`}
+          {listing.price === null || listing.price === 0 ? 'Free' : `$${listing.price.toFixed(0)}`}
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px', fontSize: '12px', color: 'var(--mps-color-text-secondary)' }}>

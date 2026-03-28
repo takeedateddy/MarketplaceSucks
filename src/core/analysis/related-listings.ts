@@ -82,7 +82,7 @@ export function findRelatedListings(
     }
 
     // Price proximity (0-0.2 weight)
-    if (target.price > 0 && candidate.price > 0) {
+    if (target.price !== null && target.price > 0 && candidate.price !== null && candidate.price > 0) {
       const priceRatio = candidate.price / target.price;
       const minRatio = 1 - cfg.priceDeviation;
       const maxRatio = 1 + cfg.priceDeviation;
@@ -96,8 +96,8 @@ export function findRelatedListings(
     }
 
     // Condition match (0-0.1 weight)
-    if (target.condition && candidate.condition) {
-      if (target.condition.toLowerCase() === candidate.condition.toLowerCase()) {
+    if (target.condition !== 'unknown' && candidate.condition !== 'unknown') {
+      if (target.condition === candidate.condition) {
         score += 0.1;
         reasons.push('Same condition');
       }
@@ -126,7 +126,7 @@ export function findRelatedListings(
     if (b.relevanceScore !== a.relevanceScore) {
       return b.relevanceScore - a.relevanceScore;
     }
-    return a.listing.price - b.listing.price;
+    return (a.listing.price ?? 0) - (b.listing.price ?? 0);
   });
 
   return results.slice(0, cfg.maxResults);

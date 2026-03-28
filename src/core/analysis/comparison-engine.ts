@@ -7,7 +7,7 @@
  * @module comparison-engine
  */
 
-import type { Listing } from '@/core/models/listing';
+import type { AnalyzedListing } from '@/core/models/analyzed-listing';
 
 /** Maximum number of listings in a comparison */
 export const MAX_COMPARISON_ITEMS = 4;
@@ -50,7 +50,7 @@ export interface ComparisonResult {
  * // "Listing B appears to be the best overall option..."
  * ```
  */
-export function compareListings(listings: Listing[]): ComparisonResult {
+export function compareListings(listings: AnalyzedListing[]): ComparisonResult {
   if (listings.length < 2) {
     return {
       listingIds: listings.map((l) => l.id),
@@ -67,8 +67,8 @@ export function compareListings(listings: Listing[]): ComparisonResult {
   const priceValues: Record<string, string> = {};
   const priceNums: Record<string, number> = {};
   for (const l of listings) {
-    priceValues[l.id] = `$${l.price.toFixed(0)}`;
-    priceNums[l.id] = l.price;
+    priceValues[l.id] = l.price !== null ? `$${l.price.toFixed(0)}` : 'N/A';
+    if (l.price !== null) priceNums[l.id] = l.price;
   }
   const cheapestId = findBest(priceNums, true);
   dimensions.push({
@@ -81,7 +81,7 @@ export function compareListings(listings: Listing[]): ComparisonResult {
   // Condition
   const condValues: Record<string, string> = {};
   for (const l of listings) {
-    condValues[l.id] = l.condition ?? 'Not specified';
+    condValues[l.id] = l.condition;
   }
   dimensions.push({
     label: 'Condition',
@@ -211,7 +211,7 @@ function findBest(
  * Generate a natural-language comparison summary.
  */
 function generateSummary(
-  listings: Listing[],
+  listings: AnalyzedListing[],
   dimensions: ComparisonDimension[],
 ): string {
   const labels = listings.map((_, i) => `Listing ${String.fromCharCode(65 + i)}`);

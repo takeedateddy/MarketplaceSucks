@@ -90,7 +90,7 @@ export function isFuzzyMatch(a: string, b: string, threshold: number = 0.3): boo
  * // => 0.5 (2 shared out of 4 unique)
  * ```
  */
-export function jaccardSimilarity(tokensA: string[], tokensB: string[]): number {
+export function jaccardSimilarity(tokensA: readonly string[], tokensB: readonly string[]): number {
   if (tokensA.length === 0 && tokensB.length === 0) return 1;
   if (tokensA.length === 0 || tokensB.length === 0) return 0;
 
@@ -162,7 +162,7 @@ export function cosineSimilarity(
  * // => { ikea: 2, malm: 1 }
  * ```
  */
-export function termFrequency(tokens: string[]): Record<string, number> {
+export function termFrequency(tokens: readonly string[]): Record<string, number> {
   const freq: Record<string, number> = {};
   for (const token of tokens) {
     freq[token] = (freq[token] ?? 0) + 1;
