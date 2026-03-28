@@ -5,11 +5,12 @@
  * @module ui/sidebar/ComparisonView
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { ComparisonRow } from '@/design-system/composites/ComparisonRow';
 import { Button } from '@/design-system/primitives/Button';
 import type { ComparisonResult } from '@/core/analysis/comparison-engine';
+import { formatAsMarkdown, formatAsText } from '@/core/utils/comparison-export';
 
 /** Props for the {@link ComparisonView} component. */
 export interface ComparisonViewProps {
@@ -30,6 +31,26 @@ export interface ComparisonViewProps {
 export const ComparisonView: React.FC<ComparisonViewProps> = ({ className }) => {
   // In production this would come from a comparison store/context
   const [comparison] = useState<ComparisonResult | null>(null);
+  const [listingTitles] = useState<Record<string, string>>({});
+  const [copied, setCopied] = useState(false);
+
+  const copyAsMarkdown = useCallback(() => {
+    if (!comparison) return;
+    const md = formatAsMarkdown(comparison, listingTitles);
+    navigator.clipboard.writeText(md).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [comparison, listingTitles]);
+
+  const copyAsText = useCallback(() => {
+    if (!comparison) return;
+    const text = formatAsText(comparison, listingTitles);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [comparison, listingTitles]);
 
   const emptyStyle: React.CSSProperties = {
     textAlign: 'center',
@@ -147,6 +168,16 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ className }) => 
           <strong>Summary:</strong> {comparison.summary}
         </div>
       )}
+
+      {/* Share actions */}
+      <div style={{ display: 'flex', gap: 'var(--mps-spacing-xs)', padding: 'var(--mps-spacing-sm) var(--mps-spacing-md)' }}>
+        <Button variant="secondary" size="sm" onClick={copyAsMarkdown}>
+          {copied ? 'Copied!' : 'Copy as Markdown'}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={copyAsText}>
+          {copied ? 'Copied!' : 'Copy as Text'}
+        </Button>
+      </div>
     </PanelLayout>
   );
 };
