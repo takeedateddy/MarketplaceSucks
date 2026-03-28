@@ -21,17 +21,12 @@ describe('computePerceptualHash', () => {
   });
 
   it('produces different hashes for different input', () => {
-    const pixels1 = new Array(1024).fill(0);
-    const pixels2 = new Array(1024).fill(255);
-    // Both uniform -> same hash (all above/below mean)
-    // Use varied data instead
-    const pixels3 = Array.from({ length: 1024 }, (_, i) => i % 256);
-    const pixels4 = Array.from({ length: 1024 }, (_, i) => (i * 7) % 256);
-    const hash3 = computePerceptualHash(pixels3);
-    const hash4 = computePerceptualHash(pixels4);
-    // They may or may not differ, but the function should work
-    expect(typeof hash3).toBe('string');
-    expect(typeof hash4).toBe('string');
+    const pixelsA = Array.from({ length: 1024 }, (_, i) => i % 256);
+    const pixelsB = Array.from({ length: 1024 }, (_, i) => (i * 7) % 256);
+    const hashA = computePerceptualHash(pixelsA);
+    const hashB = computePerceptualHash(pixelsB);
+    expect(typeof hashA).toBe('string');
+    expect(typeof hashB).toBe('string');
   });
 });
 

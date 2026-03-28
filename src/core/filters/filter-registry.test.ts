@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IFilter, FilterCategory, FilterResult } from '../interfaces/filter.interface';
+import { describe, it, expect, vi } from 'vitest';
+import type { IFilter, FilterCategory } from '../interfaces/filter.interface';
 
 // Create a fresh registry for each test (avoid singleton state leaking)
 function createRegistry() {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FilterEngine } from './filter-engine';
+import type { IFilter } from '../interfaces/filter.interface';
 import { PriceFilter } from './price-filter';
 import { ConditionFilter } from './condition-filter';
 import { buildListing } from '../test-helpers';
@@ -7,7 +8,7 @@ import { buildListing } from '../test-helpers';
 function buildRegistry() {
   const priceFilter = new PriceFilter();
   const conditionFilter = new ConditionFilter();
-  const filters = new Map<string, any>([
+  const filters = new Map<string, IFilter>([
     [priceFilter.id, priceFilter],
     [conditionFilter.id, conditionFilter],
   ]);
