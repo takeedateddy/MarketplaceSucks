@@ -6,8 +6,8 @@ import { ConditionFilter } from './condition-filter';
 import { buildListing } from '../test-helpers';
 
 function buildRegistry() {
-  const priceFilter = new PriceFilter();
-  const conditionFilter = new ConditionFilter();
+  const priceFilter = new PriceFilter() as unknown as IFilter;
+  const conditionFilter = new ConditionFilter() as unknown as IFilter;
   const filters = new Map<string, IFilter>([
     [priceFilter.id, priceFilter],
     [conditionFilter.id, conditionFilter],

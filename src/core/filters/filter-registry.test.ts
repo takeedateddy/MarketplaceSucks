@@ -28,7 +28,7 @@ function mockFilter(id: string, category: FilterCategory = 'keyword'): IFilter {
     defaultEnabled: false,
     apply: () => ({ keep: true }),
     getDefaultConfig: () => ({}),
-    validateConfig: () => true,
+    validateConfig: (_config: unknown): _config is Record<string, unknown> => true,
   };
 }
 
