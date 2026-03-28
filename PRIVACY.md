@@ -1,56 +1,62 @@
 # Privacy Commitment
 
-**MarketplaceSucks** is committed to protecting user privacy. This document outlines exactly what the extension does and does not do with your data.
+MarketplaceSucks is designed with a strict privacy-first architecture. This document describes exactly what the extension does and does not do with your data.
 
-## Core Principles
+---
 
-### No Remote Data Collection
+## No Remote Data Collection
 
-MarketplaceSucks **never** sends any data to external servers. All processing happens entirely within your browser. There are no analytics endpoints, no telemetry, no usage tracking, and no data collection of any kind.
+MarketplaceSucks does not collect, transmit, or store any user data on external servers. There is no analytics service, no telemetry endpoint, no crash reporting backend, and no data warehouse. The extension has no server component of any kind.
 
-### No External API Calls
+## No External API Calls
 
-All analysis features — seller trust scoring, image authenticity detection, price rating, heat tracking, and sales forecasting — run entirely client-side using local algorithms. No data leaves your browser. No external AI APIs, no cloud services, no third-party analytics.
+The extension makes zero network requests to any server other than Facebook itself (which your browser is already connected to). There are no calls to third-party APIs for price data, image analysis, seller verification, or any other purpose. Every analysis, score, and recommendation is computed locally using data already present on the page you are viewing.
 
-### Minimal Permissions
+## No Tracking
 
-The extension requests only the permissions strictly necessary for its functionality:
+There are no tracking pixels, fingerprinting scripts, session recordings, or usage analytics of any kind:
 
-- **`storage`** — To save your settings, filter preferences, and cached analysis data locally in your browser
-- **`activeTab`** — To interact with the currently active Facebook Marketplace tab
-- **`offscreen`** (Chrome only) — For off-screen image processing
+- No analytics scripts (Google Analytics, Mixpanel, Amplitude, or anything else)
+- No pixel tracking or browser fingerprinting
+- No third-party scripts
+- No cookies set by the extension
+- No user identification or session tracking
+- No unique identifier assigned to your installation
 
-The extension does **not** request:
+The extension does not track which listings you view, which filters you use, how long you spend on Marketplace, or anything else about your behavior.
+
+## Minimal Permissions
+
+The extension requests only the permissions required to function:
+
+- **`activeTab`** -- required to interact with the currently active Facebook Marketplace tab
+- **`storage`** -- required to persist your filter presets, saved searches, and cached analysis data in the browser's extension storage
+- **`offscreen`** (Chrome only) -- for off-screen image processing
+
+The extension does **not** request permissions for:
+
 - `tabs` (broad tab access)
 - `webRequest` or `webNavigation` (network monitoring)
 - `history` or `bookmarks`
+- Geolocation, camera, microphone, or any other sensitive browser capability
 - Any host permissions beyond `facebook.com/marketplace/*`
 
-### No Tracking
+## Everything Stored Locally
 
-- No analytics scripts (Google Analytics, Mixpanel, Amplitude, etc.)
-- No pixel tracking or fingerprinting
-- No third-party scripts of any kind
-- No cookies set by the extension
-- No user identification or session tracking
+All persisted data is stored in your browser using two mechanisms:
 
-### Local Storage Only
+1. **IndexedDB** -- listing history, seller trust scores, image hashes, price data, engagement snapshots, seen-listing tracking, and saved searches. This data lives in an IndexedDB database named "MarketplaceSucks" within your browser profile. It never leaves your machine.
 
-All data is stored locally in your browser using:
-
-- **Chrome Storage API** — For settings and small data (sync-capable)
-- **IndexedDB** — For larger datasets like listing history, price data, seller profiles, and image hashes
-
-This data never leaves your device. You can clear all extension data at any time through the Settings panel or by removing the extension.
+2. **Extension storage (chrome.storage.local / browser.storage.local)** -- user preferences and filter configurations. This data is stored locally in your browser's extension storage area.
 
 ### Data Retention
 
 - Listing history: 30 days by default (configurable)
 - Price comparison data: 90 days by default (configurable)
 - Seller trust cache: 7 days
-- Image analysis cache: Based on image URL hash, no expiry (cleared on uninstall)
+- Image analysis cache: based on image URL hash, no expiry (cleared on uninstall)
 
-You can adjust retention periods in Settings or clear all data manually.
+You can adjust retention periods in Settings or clear all data manually. Uninstalling the extension removes all stored data automatically.
 
 ## What the Extension Can See
 
@@ -60,7 +66,7 @@ The extension can read the contents of Facebook Marketplace pages that you visit
 - Seller names and profile information visible on seller profiles
 - Engagement indicators (saves, comments, views) if displayed by Facebook
 
-This data is used **only** for local analysis and is **never** transmitted anywhere.
+This data is used only for local analysis and is never transmitted anywhere.
 
 ## What the Extension Cannot See
 
@@ -71,17 +77,17 @@ This data is used **only** for local analysis and is **never** transmitted anywh
 - Any other browser tabs or windows
 - Your browsing history outside of Marketplace
 
-## TensorFlow.js Model Transparency
+## TF.js Model Transparency
 
-If you enable the optional AI image detection feature, the extension loads a small TensorFlow.js model locally in your browser. This model:
+The optional image analysis feature uses TensorFlow.js (TF.js) for ML-based AI image detection. Key facts:
 
-- Runs entirely client-side — images are never sent to any server
-- Is open-source and inspectable in the repository under `src/assets/models/`
-- Can be disabled at any time in Settings
-
-## Open Source Verification
-
-MarketplaceSucks is fully open source under the MIT license. The entire codebase is available at [github.com/takeedateddy/MarketplaceSucks](https://github.com/takeedateddy/MarketplaceSucks) for inspection. We encourage security-conscious users to review the code themselves.
+- The TF.js model is bundled with the extension. It is not downloaded from an external server at runtime.
+- The model runs entirely in your browser via a Web Worker. Image data is never sent anywhere.
+- TF.js is lazy-loaded -- it is only initialized if you use the image analysis feature. If you never trigger image analysis, TF.js is never loaded.
+- The model processes image metadata (dimensions, color statistics, EXIF presence) rather than raw pixel data of your browsing activity.
+- No model outputs, predictions, or image data are transmitted externally.
+- The model is open source and inspectable in the repository.
+- The feature can be disabled at any time in Settings.
 
 ## Content Security Policy
 
@@ -91,11 +97,14 @@ The extension enforces a strict Content Security Policy that:
 - Prohibits inline scripts
 - Restricts resource loading to the extension's own files
 
-## Contact
+## Open Source for Verification
 
-If you have privacy concerns or questions, please open an issue on our [GitHub repository](https://github.com/takeedateddy/MarketplaceSucks/issues).
+The entire source code of MarketplaceSucks is open source under the MIT License. You can audit every line of code to verify the claims in this document. There are no obfuscated modules, no binary blobs (beyond the bundled TF.js model weights, which are standard open-source artifacts), and no hidden network calls.
+
+The content script, background service worker, and all analysis engines are written in TypeScript and built with Vite. The build process is deterministic and reproducible -- you can clone the repository, run `pnpm build`, and verify that the output matches the distributed extension.
+
+If you have privacy concerns or find any behavior that contradicts this commitment, please open an issue on the [GitHub repository](https://github.com/takeedateddy/MarketplaceSucks/issues).
 
 ---
 
-*Last updated: March 2026*
-*Built by Takeeda LLC*
+Built by Takeeda LLC
