@@ -1,0 +1,112 @@
+<!--
+  Sanitized HTML fixture simulating a Facebook Marketplace search results page.
+  All user data is fictional. Class names use Facebook's generated pattern
+  but are simplified for testing. This fixture exercises:
+  - marketplaceContainer selectors
+  - listingCard selectors
+  - listingTitle, listingPrice, listingLocation, listingImage
+  - listingLink, listingCondition, listingDate
+  - sellerName, sellerLink
+  - engagementIndicators
+  - darkModeIndicator (absent = light mode)
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Marketplace</title></head>
+<body>
+<div role="main">
+  <div data-testid="marketplace-feed" aria-label="Collection of Marketplace items">
+
+    <!-- Listing 1: Full data -->
+    <div data-testid="marketplace-feed-item" data-marketplace-item-id="100001">
+      <a href="/marketplace/item/100001/" role="link">
+        <div>
+          <img src="https://scontent.xx.fbcdn.net/v/t1.0-9/photo1.jpg" alt="IKEA Malm Dresser" />
+        </div>
+        <div>
+          <span data-testid="marketplace-listing-price">$150</span>
+          <span data-testid="marketplace-listing-title">IKEA Malm Dresser - White, Great Condition</span>
+          <span data-testid="marketplace-listing-location">5 miles away</span>
+          <span data-testid="marketplace-listing-condition">Used - Like New</span>
+          <span data-testid="marketplace-listing-date">2 hours ago</span>
+        </div>
+      </a>
+      <a href="/marketplace/profile/200001/" data-testid="marketplace-seller-link">
+        <span data-testid="marketplace-seller-name">Jane D.</span>
+      </a>
+      <span data-testid="marketplace-listing-engagement">
+        <span aria-label="12 people saved this">12 saves</span>
+        <span aria-label="3 comments">3 comments</span>
+      </span>
+    </div>
+
+    <!-- Listing 2: Minimal data (no condition, no engagement, no seller) -->
+    <div data-testid="marketplace-feed-item">
+      <a href="/marketplace/item/100002/" role="link">
+        <div>
+          <img src="https://scontent.xx.fbcdn.net/v/t1.0-9/photo2.jpg" alt="" />
+        </div>
+        <div>
+          <span data-testid="marketplace-listing-price">Free</span>
+          <span data-testid="marketplace-listing-title">Moving Sale - Box of Books</span>
+          <span data-testid="marketplace-listing-location">12 miles away</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- Listing 3: Fallback selectors (no data-testid, uses structural patterns) -->
+    <div role="listitem">
+      <div data-marketplace-item-id="100003">
+        <a href="/marketplace/item/100003/" role="link">
+          <div>
+            <img src="https://fbcdn.net/v/photo3.jpg" alt="Gaming PC" />
+          </div>
+          <div>
+            <div>
+              <span dir="auto">$1,200</span>
+              <span dir="auto">Custom Gaming PC - RTX 4090, 64GB RAM</span>
+              <span dir="auto">3 miles away</span>
+            </div>
+          </div>
+        </a>
+        <a href="/marketplace/profile/200003/">
+          <span>TechDeals Mike</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Listing 4: With shipping -->
+    <div data-testid="marketplace-feed-item" data-marketplace-item-id="100004">
+      <a href="/marketplace/item/100004/" role="link">
+        <div>
+          <img src="https://scontent.xx.fbcdn.net/v/photo4.jpg" alt="" />
+        </div>
+        <div>
+          <span data-testid="marketplace-listing-price">$45</span>
+          <span data-testid="marketplace-listing-title">Vintage Record Player - Shipping Available</span>
+          <span data-testid="marketplace-listing-location">25 miles away</span>
+          <span data-testid="marketplace-listing-condition">Good</span>
+          <span data-testid="marketplace-listing-date">1 day ago</span>
+        </div>
+      </a>
+      <span aria-label="5 people saved this">5 saves</span>
+      <span aria-label="45 views">45 views</span>
+    </div>
+
+    <!-- Listing 5: High-price item with no image -->
+    <div data-testid="marketplace-feed-item" data-marketplace-item-id="100005">
+      <a href="/marketplace/item/100005/" role="link">
+        <div></div>
+        <div>
+          <span data-testid="marketplace-listing-price">$25,000</span>
+          <span data-testid="marketplace-listing-title">2020 Toyota Camry SE - Low Miles</span>
+          <span data-testid="marketplace-listing-location">8 miles away</span>
+          <span data-testid="marketplace-listing-condition">Like New</span>
+        </div>
+      </a>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
