@@ -1,0 +1,61 @@
+import type { Config } from 'tailwindcss';
+
+export default {
+  content: ['./src/**/*.{ts,tsx}', './public/**/*.html'],
+  prefix: 'mps-',
+  theme: {
+    extend: {
+      colors: {
+        primary: 'var(--mps-color-primary)',
+        'primary-hover': 'var(--mps-color-primary-hover)',
+        background: 'var(--mps-color-background)',
+        surface: 'var(--mps-color-surface)',
+        'surface-elevated': 'var(--mps-color-surface-elevated)',
+        'text-primary': 'var(--mps-color-text-primary)',
+        'text-secondary': 'var(--mps-color-text-secondary)',
+        border: 'var(--mps-color-border)',
+        'trust-high': 'var(--mps-color-trust-high)',
+        'trust-moderate': 'var(--mps-color-trust-moderate)',
+        'trust-caution': 'var(--mps-color-trust-caution)',
+        'trust-low': 'var(--mps-color-trust-low)',
+        success: 'var(--mps-color-success)',
+        warning: 'var(--mps-color-warning)',
+        error: 'var(--mps-color-error)',
+        info: 'var(--mps-color-info)',
+      },
+      fontFamily: {
+        primary: 'var(--mps-font-family-primary)',
+        mono: 'var(--mps-font-family-mono)',
+      },
+      fontSize: {
+        xs: 'var(--mps-font-size-xs)',
+        sm: 'var(--mps-font-size-sm)',
+        base: 'var(--mps-font-size-base)',
+        md: 'var(--mps-font-size-md)',
+        lg: 'var(--mps-font-size-lg)',
+        xl: 'var(--mps-font-size-xl)',
+        '2xl': 'var(--mps-font-size-xxl)',
+      },
+      spacing: {
+        xxs: 'var(--mps-spacing-xxs)',
+        xs: 'var(--mps-spacing-xs)',
+        sm: 'var(--mps-spacing-sm)',
+        md: 'var(--mps-spacing-md)',
+        lg: 'var(--mps-spacing-lg)',
+        xl: 'var(--mps-spacing-xl)',
+        '2xl': 'var(--mps-spacing-xxl)',
+        '3xl': 'var(--mps-spacing-xxxl)',
+      },
+      zIndex: {
+        'listing-badge': '100',
+        sidebar: '10000',
+        preview: '10001',
+        'comparison-bar': '10002',
+        tooltip: '10003',
+        modal: '10004',
+        'toggle-button': '9999',
+      },
+    },
+  },
+  plugins: [],
+} satisfies Config;
