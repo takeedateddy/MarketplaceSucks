@@ -1,6 +1,7 @@
 /**
  * Image analysis panel showing listings with flagged images,
- * including thumbnails, AI-detection scores, and classifications.
+ * including thumbnails, AI-detection scores, classifications,
+ * and ML vs heuristic confidence breakdown.
  *
  * @module ui/sidebar/ImageAnalysisPanel
  */
@@ -9,6 +10,7 @@ import React, { useState } from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { ImageFlagBadge } from '@/design-system/composites/ImageFlagBadge';
 import { ConfidenceBar } from '@/design-system/composites/ConfidenceBar';
+import { Badge } from '@/design-system/primitives/Badge';
 
 /** A flagged image entry for display. */
 interface FlaggedImage {
@@ -19,6 +21,12 @@ interface FlaggedImage {
   aiScore: number;
   confidence: 'high' | 'medium' | 'low';
   signalCount: number;
+  /** Whether ML model was used for this analysis */
+  mlModelUsed?: boolean;
+  /** ML model confidence score (0-1), if model was used */
+  mlScore?: number;
+  /** Inference time in milliseconds */
+  inferenceTimeMs?: number;
 }
 
 /** Props for the {@link ImageAnalysisPanel} component. */
@@ -29,7 +37,8 @@ export interface ImageAnalysisPanelProps {
 
 /**
  * Displays listings whose images have been flagged by the
- * AI-detection heuristic, with thumbnails and detail scores.
+ * AI-detection system (heuristic and/or ML model), with
+ * thumbnails, detail scores, and model attribution.
  *
  * @example
  * ```tsx
@@ -106,6 +115,7 @@ export const ImageAnalysisPanel: React.FC<ImageAnalysisPanelProps> = ({ classNam
           <div>No flagged images found.</div>
           <div style={{ marginTop: 'var(--mps-spacing-xs)' }}>
             Listing images are analyzed automatically as you browse.
+            {' '}ML model will be used when available for higher accuracy.
           </div>
         </div>
       </PanelLayout>
@@ -124,9 +134,24 @@ export const ImageAnalysisPanel: React.FC<ImageAnalysisPanelProps> = ({ classNam
               </div>
               <ImageFlagBadge classification={item.classification} score={item.aiScore} />
               <ConfidenceBar level={item.confidence} />
-              <div style={metaStyle}>
-                {item.signalCount} signal{item.signalCount !== 1 ? 's' : ''} triggered
+              <div style={{ display: 'flex', gap: 'var(--mps-spacing-xs)', alignItems: 'center' }}>
+                <span style={metaStyle}>
+                  {item.signalCount} signal{item.signalCount !== 1 ? 's' : ''} triggered
+                </span>
+                {item.mlModelUsed && (
+                  <Badge variant="info" size="sm">ML</Badge>
+                )}
+                {item.mlModelUsed && item.inferenceTimeMs !== undefined && (
+                  <span style={{ ...metaStyle, fontSize: '10px' }}>
+                    {item.inferenceTimeMs}ms
+                  </span>
+                )}
               </div>
+              {item.mlModelUsed && item.mlScore !== undefined && (
+                <div style={metaStyle}>
+                  ML confidence: {Math.round(item.mlScore * 100)}%
+                </div>
+              )}
             </div>
           </div>
         ))}
