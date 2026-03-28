@@ -33,6 +33,26 @@
       "128": "assets/icons/icon-128.png"
     }
   },
+  "commands": {
+    "toggle-sidebar": {
+      "suggested_key": {
+        "default": "Alt+S"
+      },
+      "description": "Toggle MarketplaceSucks sidebar"
+    },
+    "focus-filter": {
+      "suggested_key": {
+        "default": "Alt+F"
+      },
+      "description": "Focus the keyword filter input"
+    },
+    "clear-filters": {
+      "suggested_key": {
+        "default": "Alt+C"
+      },
+      "description": "Clear all active filters"
+    }
+  },
   "icons": {
     "16": "assets/icons/icon-16.png",
     "32": "assets/icons/icon-32.png",

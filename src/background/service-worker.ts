@@ -117,6 +117,17 @@ browser.runtime.onMessage.addListener(
 );
 
 /**
+ * Handle keyboard shortcut commands defined in manifest.json.
+ */
+browser.commands?.onCommand.addListener((command) => {
+  browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+    if (tabs[0]?.id) {
+      browser.tabs.sendMessage(tabs[0].id, { action: command });
+    }
+  });
+});
+
+/**
  * Scaffold: periodic alarm for future notification features.
  * This creates a repeating alarm that can be used to check for
  * saved search matches and price drops.
