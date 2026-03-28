@@ -23,7 +23,7 @@ jobs:
           path-to-signatures: 'signatures/version1/cla.json'
           path-to-document: 'https://github.com/takeedateddy/MarketplaceSucks/blob/main/CLA.md'
           branch: 'main'
-          allowlist: dependabot[bot],github-actions[bot]
+          allowlist: dependabot[bot],github-actions[bot],noreply@anthropic.com
           custom-notsigned-prcomment: |
             Thank you for your contribution! Before we can merge this PR, you need to sign our [Contributor License Agreement](https://github.com/takeedateddy/MarketplaceSucks/blob/main/CLA.md).
 
