@@ -1,0 +1,26 @@
+<!--
+  Dark mode variant of the Marketplace search results fixture.
+  Tests that darkModeIndicator selectors detect Facebook's dark mode class.
+-->
+<!DOCTYPE html>
+<html lang="en" class="__fb-dark-mode" data-color-scheme="dark">
+<head><meta charset="utf-8"><title>Marketplace</title></head>
+<body class="__fb-dark-mode">
+<div role="main">
+  <div data-testid="marketplace-feed" aria-label="Collection of Marketplace items">
+    <div data-testid="marketplace-feed-item" data-marketplace-item-id="100001">
+      <a href="/marketplace/item/100001/" role="link">
+        <div>
+          <img src="https://scontent.xx.fbcdn.net/v/t1.0-9/photo1.jpg" alt="Test Item" />
+        </div>
+        <div>
+          <span data-testid="marketplace-listing-price">$50</span>
+          <span data-testid="marketplace-listing-title">Dark Mode Test Listing</span>
+          <span data-testid="marketplace-listing-location">3 miles away</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+</body>
+</html>
