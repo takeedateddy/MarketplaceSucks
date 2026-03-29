@@ -226,8 +226,15 @@ async function bootstrap(): Promise<void> {
     });
 
     // 6b. Listen for messages from popup/background
+    //
+    // IMPORTANT: Return undefined for messages we don't handle so the
+    // browser closes the message channel immediately. Only return a
+    // Promise for messages that need an async response.
     browser.runtime.onMessage.addListener((message: unknown) => {
+      if (typeof message !== "object" || message === null) return;
       const msg = message as { action?: string };
+      if (!msg.action) return;
+
       switch (msg.action) {
         case "toggle-sidebar": {
           const sidebar = document.getElementById("mps-sidebar");
@@ -236,23 +243,25 @@ async function bootstrap(): Promise<void> {
           }
           const isOpen = document.getElementById("mps-sidebar")?.getAttribute("data-mps-open") === "true";
           eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: !isOpen });
-          break;
+          return;
         }
         case "focus-filter": {
           const filterInput = document.querySelector<HTMLInputElement>("[data-mps-filter-input]");
           if (filterInput) filterInput.focus();
-          break;
+          return;
         }
         case "clear-filters": {
           activeFilters.clear();
           eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "keyboard" });
-          break;
+          return;
         }
         case "run-selector-health-check": {
           return import("@/content/selector-health-checker").then(
             (mod) => mod.runSelectorHealthCheck(),
           ).catch(() => undefined);
         }
+        default:
+          return;
       }
     });
 

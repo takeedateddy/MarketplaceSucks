@@ -49,11 +49,20 @@ browser.runtime.onInstalled.addListener((details) => {
 
 /**
  * Handle messages from content scripts and popup.
+ *
+ * IMPORTANT: Only handle messages with a known `action` field.
+ * Return `undefined` (not a Promise) for unrecognized messages so
+ * the browser knows we won't respond and closes the channel immediately.
+ * Returning a Promise for unhandled messages causes "message channel closed"
+ * errors because the polyfill keeps the channel open waiting for a response.
  */
 browser.runtime.onMessage.addListener(
-  (message: unknown, sender: browser.Runtime.MessageSender): Promise<unknown> | undefined => {
+  (message: unknown): Promise<unknown> | undefined => {
+    // Only handle objects with an `action` string that starts with our known prefixes
+    if (typeof message !== 'object' || message === null) return undefined;
     const msg = message as ExtensionMessage;
-    const _sender = sender;
+    if (!msg.action) return undefined;
+
     switch (msg.action) {
       case 'get-settings':
         return browser.storage.local.get('mps-settings').then((result) => {
@@ -66,7 +75,6 @@ browser.runtime.onMessage.addListener(
         });
 
       case 'get-stats':
-        // Return quick stats for popup
         return browser.storage.local.get(['mps-listing-count', 'mps-filter-count']).then(
           (result) => ({
             listingCount: result['mps-listing-count'] ?? 0,
@@ -75,12 +83,11 @@ browser.runtime.onMessage.addListener(
         );
 
       case 'toggle-sidebar':
-        // Forward to content script in active tab
         return browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
           if (tabs[0]?.id) {
             return browser.tabs.sendMessage(tabs[0].id, {
               action: 'toggle-sidebar',
-            });
+            }).catch(() => undefined);
           }
           return undefined;
         });
@@ -94,12 +101,11 @@ browser.runtime.onMessage.addListener(
         return checkAlerts();
 
       case 'get-selector-health':
-        // Forward to content script in active tab
         return browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
           if (tabs[0]?.id) {
             return browser.tabs.sendMessage(tabs[0].id, {
               action: 'run-selector-health-check',
-            });
+            }).catch(() => undefined);
           }
           return undefined;
         });
@@ -110,7 +116,7 @@ browser.runtime.onMessage.addListener(
         }) as Promise<unknown>;
 
       default:
-        console.log(`[MPS] Unknown message action: ${msg.action}`, _sender);
+        // Unknown MPS action — don't keep the channel open
         return undefined;
     }
   },
