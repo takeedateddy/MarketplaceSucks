@@ -12,8 +12,7 @@
     "https://www.facebook.com/marketplace/*"
   ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
