@@ -225,7 +225,12 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    // 5. Load persisted settings
+    // 5. Inject UI elements FIRST (before loading settings, so sidebar exists
+    //    when loadSettings emits SIDEBAR_TOGGLED to restore open state)
+    injector.injectToggleButton();
+    injector.injectSidebar();
+
+    // 6. Load persisted settings (may emit SIDEBAR_TOGGLED to reopen sidebar)
     await loadSettings(eventBus);
 
     // Listen for storage changes from popup/options pages
@@ -248,10 +253,7 @@ async function bootstrap(): Promise<void> {
     });
     cleanupFns.push(stopStorageListener);
 
-    // 6. Inject UI elements
-    injector.injectToggleButton();
-    injector.injectSidebar();
-
+    // 7. Wire UI event handlers
     // Wire search box — navigates to Facebook Marketplace search
     const keywordInput = document.getElementById("mps-keyword-input") as HTMLInputElement | null;
     const searchBtn = document.getElementById("mps-search-btn");

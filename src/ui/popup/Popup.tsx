@@ -47,6 +47,8 @@ export function Popup() {
   }, []);
 
   const handleOpenMarketplace = useCallback(() => {
+    // Set sidebar to open so it auto-opens when the Marketplace page loads
+    browser.storage.local.set({ "mps:sidebarOpen": true }).catch(() => {});
     browser.runtime.sendMessage({ action: 'open-marketplace' });
   }, []);
 
