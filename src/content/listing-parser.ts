@@ -369,21 +369,44 @@ export class ListingParser implements IListingParser {
   }
 
   /**
-   * Fallback price extraction: scan all span elements in the card for text
-   * that looks like a price ($XX, $X,XXX, Free, etc.).
-   * Used when none of the SELECTORS.listingPrice selectors match.
+   * Fallback price extraction: scan the card's text content for the first
+   * dollar amount pattern. Used when SELECTORS.listingPrice returns null.
+   *
+   * Searches all spans first (more precise), then falls back to full
+   * textContent regex match.
    */
   private extractPriceFallback(element: Element): string | null {
     try {
+      // Strategy 1: find a span whose text is exactly a price
       const spans = element.querySelectorAll('span');
       for (const span of Array.from(spans)) {
         const text = span.textContent?.trim();
         if (!text || text.length > 20) continue;
-        // Match $123, $1,234, $1,234.56, Free
         if (/^\$[\d,]+(\.\d{2})?$/.test(text) || text.toLowerCase() === 'free') {
           return text;
         }
       }
+
+      // Strategy 2: find a span that CONTAINS a price (e.g. "$720 " with trailing space)
+      for (const span of Array.from(spans)) {
+        const text = span.textContent?.trim();
+        if (!text || text.length > 30) continue;
+        const match = text.match(/^(\$[\d,]+(?:\.\d{2})?)/);
+        if (match) {
+          return match[1];
+        }
+        if (/^free$/i.test(text)) {
+          return 'Free';
+        }
+      }
+
+      // Strategy 3: regex the entire card text for first dollar amount
+      const fullText = element.textContent ?? '';
+      const priceMatch = fullText.match(/\$[\d,]+(?:\.\d{2})?/);
+      if (priceMatch) {
+        return priceMatch[0];
+      }
+
       return null;
     } catch {
       return null;
