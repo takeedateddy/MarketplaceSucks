@@ -32,6 +32,7 @@ import { detectFacebookTheme, observeThemeChanges } from "@/design-system/theme/
 import { injectCSSVariables } from "@/design-system/theme/css-variables";
 import { EventBus, MPS_EVENTS } from "@/core/utils/event-bus";
 import { filterRegistry } from "@/core/filters/filter-registry";
+import type { IFilter } from "@/core/interfaces/filter.interface";
 import { FilterEngine } from "@/core/filters/filter-engine";
 import { KeywordFilter } from "@/core/filters/keyword-filter";
 import { KeywordExcludeFilter } from "@/core/filters/keyword-exclude-filter";
@@ -112,12 +113,12 @@ async function bootstrap(): Promise<void> {
 
     // 2. Shared infrastructure
     // Register all filters
-    filterRegistry.register(new KeywordFilter());
-    filterRegistry.register(new KeywordExcludeFilter());
-    filterRegistry.register(new PriceFilter());
-    filterRegistry.register(new ConditionFilter());
-    filterRegistry.register(new DistanceFilter());
-    filterRegistry.register(new DateFilter());
+    filterRegistry.register(new KeywordFilter() as unknown as IFilter);
+    filterRegistry.register(new KeywordExcludeFilter() as unknown as IFilter);
+    filterRegistry.register(new PriceFilter() as unknown as IFilter);
+    filterRegistry.register(new ConditionFilter() as unknown as IFilter);
+    filterRegistry.register(new DistanceFilter() as unknown as IFilter);
+    filterRegistry.register(new DateFilter() as unknown as IFilter);
     console.log(`${LOG_PREFIX} Registered ${filterRegistry.size} filters`);
 
     // Register all sorters
