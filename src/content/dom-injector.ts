@@ -101,17 +101,23 @@ export class DomInjector {
       `;
       content.appendChild(stats);
 
-      // Keyword filter
+      // Search box
       const filterSection = document.createElement("div");
       filterSection.className = "mps-sidebar-section";
       filterSection.innerHTML = `
         <div style="margin-bottom: 12px;">
-          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px;">Keyword Filter</label>
-          <input type="text" id="mps-keyword-input" data-mps-filter-input
-            placeholder="e.g. dresser, iPhone, couch"
-            style="width: 100%; padding: 8px 12px; border: 1px solid var(--mps-color-border, #ced0d4); border-radius: 6px; font-size: 13px; box-sizing: border-box; background: var(--mps-color-surface, #fff); color: var(--mps-color-text-primary, #1c1e21);" />
+          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px;">Search Marketplace</label>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="mps-keyword-input" data-mps-filter-input
+              placeholder="Search for anything..."
+              style="flex: 1; padding: 8px 12px; border: 1px solid var(--mps-color-border, #ced0d4); border-radius: 6px; font-size: 13px; box-sizing: border-box; background: var(--mps-color-surface, #fff); color: var(--mps-color-text-primary, #1c1e21);" />
+            <button id="mps-search-btn"
+              style="padding: 8px 14px; border: none; border-radius: 6px; background: var(--mps-color-primary, #0866ff); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+              Search
+            </button>
+          </div>
           <div style="font-size: 11px; color: var(--mps-color-text-secondary, #65676b); margin-top: 4px;">
-            Separate keywords with commas. Use "quotes" for exact phrases.
+            Press Enter or click Search. Use price filters below to narrow results.
           </div>
         </div>
       `;

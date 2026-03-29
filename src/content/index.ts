@@ -252,22 +252,32 @@ async function bootstrap(): Promise<void> {
     injector.injectToggleButton();
     injector.injectSidebar();
 
-    // Wire keyword filter input
-    const keywordInput = document.getElementById("mps-keyword-input");
-    if (keywordInput) {
-      let keywordTimer: ReturnType<typeof setTimeout> | null = null;
-      keywordInput.addEventListener("input", () => {
-        if (keywordTimer) clearTimeout(keywordTimer);
-        keywordTimer = setTimeout(() => {
-          const value = (keywordInput as HTMLInputElement).value.trim();
-          if (value) {
-            activeFilters.set("keyword-include", { keywords: value, fuzzyLevel: "medium" });
-          } else {
-            activeFilters.delete("keyword-include");
-          }
-          eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "sidebar" });
-        }, 300);
-      });
+    // Wire search box — navigates to Facebook Marketplace search
+    const keywordInput = document.getElementById("mps-keyword-input") as HTMLInputElement | null;
+    const searchBtn = document.getElementById("mps-search-btn");
+
+    const performSearch = () => {
+      const query = keywordInput?.value.trim();
+      if (query) {
+        const searchUrl = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}`;
+        window.location.href = searchUrl;
+      }
+    };
+
+    keywordInput?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        performSearch();
+      }
+    });
+
+    searchBtn?.addEventListener("click", performSearch);
+
+    // Pre-fill search box from current URL query parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentQuery = urlParams.get("query");
+    if (currentQuery && keywordInput) {
+      keywordInput.value = currentQuery;
     }
 
     // Wire price filter inputs
