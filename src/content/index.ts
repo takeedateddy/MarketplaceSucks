@@ -220,6 +220,9 @@ async function bootstrap(): Promise<void> {
           mainContent.style.transition = "margin-right 200ms ease-in-out";
           mainContent.style.marginRight = open ? "var(--mps-sidebar-width, 360px)" : "";
         }
+
+        // Persist sidebar state so it reopens after navigation/search
+        browser.storage.local.set({ [STORAGE_KEY_SIDEBAR]: open }).catch(() => {});
       } catch (err) {
         console.warn(`${LOG_PREFIX} Error toggling sidebar:`, err);
       }
@@ -259,6 +262,8 @@ async function bootstrap(): Promise<void> {
     const performSearch = () => {
       const query = keywordInput?.value.trim();
       if (query) {
+        // Save sidebar as open so it persists after navigation
+        browser.storage.local.set({ [STORAGE_KEY_SIDEBAR]: true }).catch(() => {});
         const searchUrl = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}`;
         window.location.href = searchUrl;
       }
