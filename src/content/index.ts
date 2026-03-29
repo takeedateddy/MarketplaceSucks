@@ -173,39 +173,7 @@ async function bootstrap(): Promise<void> {
           total: knownListings.size,
         });
         console.log(`${LOG_PREFIX} Parsed ${newListings.length} new listings (${knownListings.size} total)`);
-
-        // Update sidebar stats
-        const statsEl = document.getElementById("mps-stats-content");
-        if (statsEl) {
-          const allPrices = Array.from(knownListings.values())
-            .map((l) => l.price)
-            .filter((p): p is number => p !== null && p > 0);
-          const totalListings = knownListings.size;
-          const withPrices = allPrices.length;
-
-          if (allPrices.length > 0) {
-            const sorted = [...allPrices].sort((a, b) => a - b);
-            const median = sorted.length % 2 === 0
-              ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-              : sorted[Math.floor(sorted.length / 2)];
-            const avg = Math.round(allPrices.reduce((a, b) => a + b, 0) / allPrices.length);
-            const min = sorted[0];
-            const max = sorted[sorted.length - 1];
-            const fmt = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n}`;
-
-            statsEl.innerHTML = `
-              <div><strong>${totalListings}</strong> listings found (${withPrices} with prices)</div>
-              <div>Median price: <strong>${fmt(Math.round(median))}</strong></div>
-              <div>Average price: <strong>${fmt(avg)}</strong></div>
-              <div>Price range: <strong>${fmt(min)}</strong> - <strong>${fmt(max)}</strong></div>
-            `;
-          } else {
-            statsEl.innerHTML = `
-              <div><strong>${totalListings}</strong> listings found</div>
-              <div style="color: var(--mps-color-text-secondary, #65676b);">No prices extracted yet</div>
-            `;
-          }
-        }
+        updateStats(Array.from(knownListings.values()));
       }
     });
 
@@ -322,6 +290,33 @@ async function bootstrap(): Promise<void> {
     priceMin?.addEventListener("input", handlePriceChange);
     priceMax?.addEventListener("input", handlePriceChange);
 
+    // Wire sort dropdown
+    const sortSelect = document.getElementById("mps-sort-select") as HTMLSelectElement | null;
+    sortSelect?.addEventListener("change", () => {
+      const value = sortSelect.value;
+      if (value) {
+        const [sorterId, direction] = value.split("-") as [string, "asc" | "desc"];
+        activeSortId = sorterId;
+        activeSortDirection = direction;
+      } else {
+        activeSortId = null;
+      }
+      eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "sidebar" });
+    });
+
+    // Wire clear filters button
+    const clearBtn = document.getElementById("mps-clear-filters-btn");
+    clearBtn?.addEventListener("click", () => {
+      activeFilters.clear();
+      activeSortId = null;
+      activeSortDirection = "asc";
+      // Reset UI inputs
+      if (priceMin) priceMin.value = "";
+      if (priceMax) priceMax.value = "";
+      if (sortSelect) sortSelect.value = "";
+      eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "sidebar" });
+    });
+
     // Wire toggle button click
     const toggleBtn = document.getElementById("mps-sidebar-toggle");
     if (toggleBtn) {
@@ -429,6 +424,13 @@ function applyFiltersAndSort(
     manipulator.showAllListings();
     manipulator.hideListings(hiddenIds);
 
+    // Update stats to reflect filtered results
+    const hasActiveFilters = activeFilters.size > 0;
+    updateStats(
+      hasActiveFilters ? filterResult.listings : allListings,
+      hasActiveFilters ? allListings.length : undefined,
+    );
+
     eventBus.emit(MPS_EVENTS.LISTINGS_FILTERED, {
       visible: filterResult.listings.length,
       hidden: hiddenIds.length,
@@ -450,6 +452,61 @@ function applyFiltersAndSort(
     }
   } catch (err) {
     console.warn(`${LOG_PREFIX} Error applying filters/sort:`, err);
+  }
+}
+
+/**
+ * Update the sidebar stats display.
+ * @param listings - The listings to compute stats from (filtered or all)
+ * @param totalUnfiltered - If provided, shows "Showing X of Y"
+ */
+function updateStats(listings: Listing[], totalUnfiltered?: number): void {
+  const statsEl = document.getElementById("mps-stats-content");
+  const filterStatusEl = document.getElementById("mps-filter-status");
+  if (!statsEl) return;
+
+  const fmt = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n}`;
+
+  const allPrices = listings
+    .map((l) => l.price)
+    .filter((p): p is number => p !== null && p > 0);
+  const count = listings.length;
+  const withPrices = allPrices.length;
+
+  if (allPrices.length > 0) {
+    const sorted = [...allPrices].sort((a, b) => a - b);
+    const median = sorted.length % 2 === 0
+      ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+      : sorted[Math.floor(sorted.length / 2)];
+    const avg = Math.round(allPrices.reduce((a, b) => a + b, 0) / allPrices.length);
+    const min = sorted[0];
+    const max = sorted[sorted.length - 1];
+
+    statsEl.innerHTML = `
+      <div><strong>${count}</strong> listings${totalUnfiltered ? ` (of ${totalUnfiltered})` : ''} (${withPrices} with prices)</div>
+      <div>Median: <strong>${fmt(Math.round(median))}</strong> | Avg: <strong>${fmt(avg)}</strong></div>
+      <div>Range: <strong>${fmt(min)}</strong> - <strong>${fmt(max)}</strong></div>
+    `;
+  } else {
+    statsEl.innerHTML = `
+      <div><strong>${count}</strong> listings${totalUnfiltered ? ` (of ${totalUnfiltered})` : ''}</div>
+      <div style="color: var(--mps-color-text-secondary, #65676b);">No prices extracted yet</div>
+    `;
+  }
+
+  // Update filter status
+  if (filterStatusEl) {
+    if (totalUnfiltered && totalUnfiltered > count) {
+      filterStatusEl.style.display = "block";
+      filterStatusEl.innerHTML = `
+        <span style="color: var(--mps-color-primary, #0866ff); font-weight: 600;">
+          Showing ${count} of ${totalUnfiltered} listings
+        </span>
+        <span style="color: var(--mps-color-text-secondary, #65676b);"> (${totalUnfiltered - count} filtered out)</span>
+      `;
+    } else {
+      filterStatusEl.style.display = "none";
+    }
   }
 }
 

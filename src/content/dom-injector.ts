@@ -97,6 +97,8 @@ export class DomInjector {
           <div id="mps-stats-content" style="font-size: 12px; color: var(--mps-color-text-secondary, #65676b);">
             Scanning listings...
           </div>
+          <div id="mps-filter-status" style="font-size: 12px; margin-top: 6px; display: none;">
+          </div>
         </div>
       `;
       content.appendChild(stats);
@@ -139,6 +141,38 @@ export class DomInjector {
         </div>
       `;
       content.appendChild(priceSection);
+
+      // Sort dropdown
+      const sortSection = document.createElement("div");
+      sortSection.className = "mps-sidebar-section";
+      sortSection.innerHTML = `
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px;">Sort By</label>
+          <select id="mps-sort-select"
+            style="width: 100%; padding: 8px; border: 1px solid var(--mps-color-border, #ced0d4); border-radius: 6px; font-size: 13px; background: var(--mps-color-surface, #fff); color: var(--mps-color-text-primary, #1c1e21); cursor: pointer;">
+            <option value="">Default (Facebook order)</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+            <option value="date-desc">Newest First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="distance-asc">Nearest First</option>
+            <option value="alphabetical-asc">A-Z</option>
+            <option value="alphabetical-desc">Z-A</option>
+          </select>
+        </div>
+      `;
+      content.appendChild(sortSection);
+
+      // Clear filters button
+      const clearSection = document.createElement("div");
+      clearSection.className = "mps-sidebar-section";
+      clearSection.innerHTML = `
+        <button id="mps-clear-filters-btn"
+          style="width: 100%; padding: 10px; border: 1px solid var(--mps-color-border, #ced0d4); border-radius: 6px; background: transparent; color: var(--mps-color-text-secondary, #65676b); font-size: 13px; cursor: pointer; margin-bottom: 12px; transition: background 0.15s;">
+          Clear All Filters
+        </button>
+      `;
+      content.appendChild(clearSection);
 
       // Info section
       const info = document.createElement("div");
