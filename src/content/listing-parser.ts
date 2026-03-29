@@ -149,7 +149,7 @@ export class ListingParser implements IListingParser {
     }
 
     const listingUrl = this.extractListingUrl(element) ?? `https://www.facebook.com/marketplace/item/${id}`;
-    const priceText = this.extractText(element, SELECTORS.listingPrice);
+    const priceText = this.extractText(element, SELECTORS.listingPrice) ?? this.extractPriceFallback(element);
     const locationText = this.extractText(element, SELECTORS.listingLocation);
     const conditionText = this.extractText(element, SELECTORS.listingCondition);
     const dateText = this.extractText(element, SELECTORS.listingDate);
@@ -366,6 +366,28 @@ export class ListingParser implements IListingParser {
   private normalizeCondition(text: string): ListingCondition {
     const lower = text.toLowerCase().trim();
     return CONDITION_MAP[lower] ?? "unknown";
+  }
+
+  /**
+   * Fallback price extraction: scan all span elements in the card for text
+   * that looks like a price ($XX, $X,XXX, Free, etc.).
+   * Used when none of the SELECTORS.listingPrice selectors match.
+   */
+  private extractPriceFallback(element: Element): string | null {
+    try {
+      const spans = element.querySelectorAll('span');
+      for (const span of Array.from(spans)) {
+        const text = span.textContent?.trim();
+        if (!text || text.length > 20) continue;
+        // Match $123, $1,234, $1,234.56, Free
+        if (/^\$[\d,]+(\.\d{2})?$/.test(text) || text.toLowerCase() === 'free') {
+          return text;
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   /**
