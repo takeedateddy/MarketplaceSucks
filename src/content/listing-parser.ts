@@ -400,14 +400,25 @@ export class ListingParser implements IListingParser {
         }
       }
 
-      // Strategy 3: regex the entire card text for first dollar amount
-      // Cap at $100,000 to avoid matching tracking IDs in Facebook's data attributes
-      const fullText = element.textContent ?? '';
-      const priceMatch = fullText.match(/\$[\d,]+(?:\.\d{2})?/);
-      if (priceMatch) {
-        const value = parseFloat(priceMatch[0].replace(/[$,]/g, ''));
-        if (value <= 100000) {
-          return priceMatch[0];
+      // Strategy 3: walk visible text nodes for first dollar amount.
+      // Using TreeWalker instead of textContent to avoid matching prices
+      // embedded in Facebook's tracking URLs and data attributes that
+      // get concatenated into textContent but aren't actually visible.
+      const walker = document.createTreeWalker(
+        element,
+        NodeFilter.SHOW_TEXT,
+        null,
+      );
+      let textNode: Node | null;
+      while ((textNode = walker.nextNode())) {
+        const nodeText = textNode.textContent?.trim();
+        if (!nodeText) continue;
+        const match = nodeText.match(/\$[\d,]+(?:\.\d{2})?/);
+        if (match) {
+          return match[0];
+        }
+        if (/^free$/i.test(nodeText)) {
+          return "Free";
         }
       }
 

@@ -310,7 +310,6 @@ async function bootstrap(): Promise<void> {
     const handlePriceChange = () => {
       const rawMin = priceMin?.value ? parseFloat(priceMin.value) : null;
       const rawMax = priceMax?.value ? parseFloat(priceMax.value) : null;
-      // Clamp to non-negative
       const min = rawMin !== null && rawMin >= 0 ? rawMin : null;
       const max = rawMax !== null && rawMax >= 0 ? rawMax : null;
       if (min !== null || max !== null) {
