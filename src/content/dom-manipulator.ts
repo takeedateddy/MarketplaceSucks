@@ -60,6 +60,15 @@ export class DomManipulator {
           if (idSet.has(listingId)) {
             element.classList.add("mps-listing-hidden");
             element.setAttribute("data-mps-hidden", "true");
+
+            // Also hide the parent grid cell wrapper — Facebook wraps each
+            // listing card in an extra div that maintains the grid slot.
+            // Without hiding the parent, hidden cards leave empty gaps.
+            const parent = element.parentElement;
+            if (parent && parent !== document.body) {
+              parent.classList.add("mps-listing-hidden");
+              parent.setAttribute("data-mps-parent-hidden", "true");
+            }
           }
         }
       } catch (err) {
@@ -81,6 +90,7 @@ export class DomManipulator {
         for (const el of Array.from(hidden)) {
           el.classList.remove("mps-listing-hidden");
           el.removeAttribute("data-mps-hidden");
+          el.removeAttribute("data-mps-parent-hidden");
         }
       } catch (err) {
         console.warn("[MPS] Error showing listings:", err);
