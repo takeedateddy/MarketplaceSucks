@@ -24,6 +24,8 @@
  * ```
  */
 
+import "./styles.css";
+
 import { storageGet, onStorageChanged } from "@/platform/storage";
 import { detectFacebookTheme, observeThemeChanges } from "@/design-system/theme/theme-detector";
 import { injectCSSVariables } from "@/design-system/theme/css-variables";
