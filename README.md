@@ -23,6 +23,7 @@ No accounts. No API keys. No subscriptions. No data leaves your browser. Ever.
   - [Selector Health Monitoring](#selector-health-monitoring)
   - [Productivity](#productivity)
 - [How It Works (No LLM, No Cloud, No API)](#how-it-works-no-llm-no-cloud-no-api)
+- [Algorithms & Formulas](#algorithms--formulas)
 - [Free vs Pro (Planned)](#free-vs-pro-planned)
 - [Installation](#installation)
 - [Usage](#usage)
@@ -245,6 +246,414 @@ Facebook changes their DOM frequently, which can break the extension's CSS selec
 | **Related listings** | Jaccard similarity on title tokens + category/price/condition bonuses. Set math. |
 
 The ML model infrastructure exists (Web Worker pipeline, TF.js lazy loading, combined 70/30 scoring) but **no trained model is currently bundled**. The heuristic engine handles everything today.
+
+---
+
+## Algorithms & Formulas
+
+Every score in MarketplaceSucks is computed using transparent, deterministic formulas. This section documents them all so you can verify, critique, or improve them.
+
+### Seller Trust Score
+
+**Formula:** `trustScore = clamp(accountAge + rating + ratingVolume + profileCompleteness + response + listingBehavior, 0, 100)`
+
+Six independent factors are scored and summed. The total possible is 100 points.
+
+**Why a weighted sum?** Trust is multi-dimensional. A seller with a perfect 5-star rating but a 1-week-old account is riskier than a 3-year account with 4.2 stars. The weighted sum lets each factor contribute proportionally to its predictive value. Account age and star rating get the highest weights (25 each) because they're the strongest scam indicators on Marketplace.
+
+<details>
+<summary>Factor 1: Account Age (0-25 points)</summary>
+
+| Account Age | Points | Reasoning |
+|-------------|--------|-----------|
+| < 3 months | 0 | New accounts are the #1 scam vector on Marketplace |
+| 3-5 months | 5 | Still new, minimal track record |
+| 6-11 months | 10 | Some history, but could be a burner account |
+| 12-23 months | 15 | Reasonable history |
+| 24-59 months | 20 | Established account |
+| 60+ months | 25 | Long-standing account, very low scam risk |
+
+**Default when unknown:** 12 points (midpoint). Reasoning: penalizing unknown accounts too harshly would hide legitimate sellers who simply have private profiles.
+
+**Conversion:** `ageMonths = floor(accountAgeDays / 30)`
+</details>
+
+<details>
+<summary>Factor 2: Star Rating (0-25 points)</summary>
+
+| Rating | Points | Reasoning |
+|--------|--------|-----------|
+| < 3.0 | 0 | Below average — significant negative feedback |
+| 3.0-3.4 | 10 | Mixed reviews |
+| 3.5-3.9 | 15 | Above average |
+| 4.0-4.4 | 20 | Good reputation |
+| 4.5+ | 25 | Excellent reputation |
+
+**Default when unknown:** 5 points (neutral-low). Reasoning: absence of ratings is slightly negative — established trustworthy sellers almost always have some reviews.
+</details>
+
+<details>
+<summary>Factor 3: Rating Volume (0-15 points)</summary>
+
+| Reviews | Points | Reasoning |
+|---------|--------|-----------|
+| 0 | 3 | No social proof |
+| 1-5 | 7 | Minimal data |
+| 6-20 | 10 | Reasonable sample |
+| 21-50 | 13 | Strong sample |
+| 50+ | 15 | Very high confidence |
+
+**Default when unknown:** 7 points (midpoint). Reasoning: volume adds confidence to the star rating — a 4.8 with 2 reviews means less than 4.8 with 50 reviews.
+</details>
+
+<details>
+<summary>Factor 4: Profile Completeness (0-15 points, additive)</summary>
+
+| Field | Points | Reasoning |
+|-------|--------|-----------|
+| Profile photo | +5 | Scammers rarely add real photos |
+| Cover photo | +3 | Extra effort signals legitimacy |
+| Location listed | +4 | Willingness to share location |
+| Bio filled in | +3 | Additional personal investment |
+
+**Default when unknown:** 7 points (midpoint).
+</details>
+
+<details>
+<summary>Factor 5: Response Rate (0-10 points)</summary>
+
+| Response Level | Points | Reasoning |
+|----------------|--------|-----------|
+| "Very responsive" / "< 1 hour" | 10 | Active, engaged seller |
+| "Responsive" / "< 12 hours" | 7 | Reasonable response time |
+| "Not responsive" / "> 24 hours" | 0 | May be inactive or ghost listing |
+
+**Default when unknown:** 3 points (low-neutral).
+</details>
+
+<details>
+<summary>Factor 6: Listing Behavior (0-10 points)</summary>
+
+| Active Listings | Points | Reasoning |
+|-----------------|--------|-----------|
+| 1-10 | 10 | Normal individual seller |
+| 11-30 | 7 | Active seller, possibly small business |
+| 31-100 | 4 | High volume — could be dropshipper |
+| 100+ | 2 | Spam risk or commercial reseller |
+
+**Default when unknown:** 5 points (midpoint).
+</details>
+
+**Confidence:** Based on how many of the 6 factors had real data (vs defaults): 5+ = high, 3-4 = medium, 1-2 = low, 0 = insufficient.
+
+**Tiers:** Trusted (80+), Moderate (60-79), Caution (40-59), Low (<40).
+
+**Example:** A seller with a 3-year account (20pts), 4.6 stars (25pts), 30 reviews (13pts), profile photo + location (9pts), very responsive (10pts), 8 active listings (10pts) = **87 → Trusted**.
+
+---
+
+### Price Rating
+
+**Formula:** `percentOfMedian = round((listingPrice / median(comparablePrices)) × 100)`
+
+The listing's price is compared against the statistical distribution of similar listings.
+
+**Why percentage of median?** Median is more robust than mean — a single $10,000 outlier doesn't skew the comparison. The percentage scale makes the tier boundaries intuitive: 100% = exactly at market rate.
+
+| Tier | % of Median | Reasoning |
+|------|------------|-----------|
+| Steal | ≤ 40% | Less than half of market price — verify it's real |
+| Great Deal | 41-70% | Significantly below market — strong buy signal |
+| Good Price | 71-90% | Meaningfully below average |
+| Fair Price | 91-110% | Within ±10% of median — normal market rate |
+| Above Market | 111-130% | Noticeable premium |
+| High | 131-160% | Significant premium — negotiate or skip |
+| Overpriced | > 160% | More than 1.5x market rate |
+
+**Statistics computed:**
+```
+median = sorted[n/2] or average of two middle values
+mean = sum(prices) / count
+stdDev = sqrt(sum((price - mean)²) / count)
+percentileRank = (count of prices below listing price / total count) × 100
+```
+
+**Minimum data requirement:** 5 comparable listings. Below that, no rating is generated (avoids unreliable comparisons).
+
+**Confidence:** 20+ comparables = high, 10-19 = medium, 5-9 = low.
+
+**Example:** A dresser listed at $75 when 15 similar dressers have a median of $120 → `75/120 × 100 = 63%` → **Great Deal** with medium confidence.
+
+---
+
+### AI Image Detection (Heuristic)
+
+**Formula:** `aiScore = round((triggeredWeight / totalWeight) × 100)`
+
+Five binary signals are evaluated. Each has a weight reflecting its predictive value for detecting AI-generated images.
+
+| Signal | Weight | Trigger | Why This Weight |
+|--------|--------|---------|-----------------|
+| No EXIF metadata | 25 | `!hasExif` | Strongest single indicator — real cameras always embed EXIF (model, exposure, GPS). AI generators strip it. |
+| AI-typical resolution | 20 | Exact match: 512x512, 768x768, 1024x1024, 1024x768, 768x1024, 1024x576, 576x1024, 1920x1080, 1080x1920 | AI generators output at fixed resolutions. Real phone cameras produce 3024x4032, 4000x3000, etc. |
+| Uniform saturation | 20 | `saturationStdDev < 0.1 AND avgSaturation > 0.3` | AI images have unnaturally even color distribution. Real photos have shadows, reflections, varying lighting. |
+| Uniform background | 15 | `hasUniformBackground` | Common in AI renders and stock photos. Real marketplace photos show messy rooms, driveways, etc. |
+| AI-typical aspect ratio | 10 | Within 0.02 of: 1:1, 4:3, 3:4, 16:9, 9:16 | Lower weight because many real photos also use standard ratios. It's a supporting signal, not conclusive. |
+
+**Total weight = 90.** If all 5 signals trigger: `90/90 × 100 = 100`.
+
+**Classification:**
+- ≤ 30 → Appears Real (at most 1 weak signal triggered)
+- 31-60 → Possibly AI (2-3 signals or 1 strong signal)
+- \> 60 → Likely AI (majority of signals triggered)
+
+**Why heuristic instead of ML?** Heuristics are fast (< 1ms), require zero dependencies, and are fully transparent. Users can see exactly which signals triggered. The ML model (planned Pro feature) will add accuracy but the heuristic catches the obvious cases.
+
+---
+
+### Image Originality Scoring
+
+**Formula:** `originalityScore = clamp(50 + positiveAdjustments - negativeAdjustments, 0, 100)`
+
+Starts at a **neutral 50** (no opinion) and adjusts based on evidence.
+
+| Signal | Adjustment | Reasoning |
+|--------|-----------|-----------|
+| Environmental context (real background) | +15 | Room, furniture, yard in background = someone took a real photo |
+| Multi-angle photo set | +15 | Multiple angles of same item = original photography |
+| Duplicate found in other listings | -15 per duplicate (max -40) | Same image on multiple listings = scraped or stock |
+| White/uniform background | -15 | Common in product/stock photography, not casual marketplace photos |
+| Studio lighting | -10 | Professional lighting suggests commercial source |
+| High recompression artifacts | -10 | Multiple re-saves suggest the image was downloaded from the web |
+
+**Classification:** Original (80+), Mixed Signals (50-79), Likely Sourced (20-49), Probably Not Original (<20).
+
+**Perceptual hash algorithm:**
+```
+1. Input: 32×32 grayscale image (1024 pixel values)
+2. Divide into 8×8 grid of blocks (each block = 4×4 pixels)
+3. Compute mean brightness of each block → 64 values
+4. Compute overall mean of all 64 block values
+5. Binary hash: 1 if block mean ≥ overall mean, else 0 → 64-bit hash
+6. Convert to 16-character hex string
+```
+
+**Duplicate detection:** Two images are considered similar if their Hamming distance (number of differing bits) is ≤ 10 out of 64.
+
+---
+
+### Heat Score (Popularity)
+
+**Formula:** `heatScore = clamp(absoluteEngagement + velocity + positionScore + recencyBoost, 0, 100)`
+
+Four independent components capture different aspects of listing popularity.
+
+<details>
+<summary>Component 1: Absolute Engagement (0-40 points)</summary>
+
+| Saves | Points | | Comments | Points | | Views | Points |
+|-------|--------|-|----------|--------|-|-------|--------|
+| 20+ | 15 | | 10+ | 15 | | 500+ | 10 |
+| 10-19 | 12 | | 5-9 | 10 | | 200-499 | 8 |
+| 5-9 | 8 | | 2-4 | 6 | | 100-199 | 5 |
+| 2-4 | 4 | | 1 | 3 | | 50-99 | 3 |
+| 1 | 1 | | 0 | 0 | | 1-49 | 1 |
+
+**Why saves are weighted highest:** Saves indicate genuine purchase intent. Comments can be questions. Views are passive.
+</details>
+
+<details>
+<summary>Component 2: Engagement Velocity (0-35 points)</summary>
+
+**Formula:**
+```
+hoursSince = max((now - previousObservedAt) / 3,600,000, 0.1)
+totalDelta = (savesDelta × 1) + (commentsDelta × 2) + (viewsDelta × 0.1)
+velocityPerHour = totalDelta / hoursSince
+```
+
+| Velocity/hour | Points | Meaning |
+|---------------|--------|---------|
+| ≥ 10 | 35 | Viral — selling very fast |
+| 5-9 | 28 | High demand |
+| 2-4 | 20 | Good traction |
+| 1-1.9 | 12 | Moderate interest |
+| 0.5-0.9 | 6 | Some activity |
+| < 0.5 | 2 | Minimal change |
+
+**Why comments are 2x weighted in velocity:** A new comment represents active engagement. A view might be accidental scrolling.
+</details>
+
+<details>
+<summary>Component 3: Search Position (0-15 points)</summary>
+
+| Position | Points | Reasoning |
+|----------|--------|-----------|
+| 1-5 | 15 | Top results get the most traffic |
+| 6-10 | 12 | Still above the fold |
+| 11-20 | 8 | Requires some scrolling |
+| 21-50 | 4 | Deep in results |
+| 50+ | 1 | Minimal visibility |
+</details>
+
+<details>
+<summary>Component 4: Recency Boost (0-10 points)</summary>
+
+Only applies when the listing has any engagement (saves > 0 OR comments > 0 OR views > 0).
+
+| Hours Since Posted | Points | Reasoning |
+|--------------------|--------|-----------|
+| ≤ 2 | 10 | Brand new with engagement = hot |
+| 3-6 | 8 | Very fresh |
+| 7-12 | 6 | Same day |
+| 13-24 | 4 | Yesterday |
+| 25-48 | 2 | Couple days old |
+| > 48 | 0 | No boost for older listings |
+</details>
+
+**Tiers:** Fire (80+), Hot (60-79), Warm (30-59), Cool (<30).
+
+---
+
+### Sales Forecast
+
+**Formula:**
+```
+estimatedDays = clamp(
+  baseDays × priceAdj × heatAdj × conditionAdj × pricePointAdj × weekendAdj × responseAdj,
+  0.25,
+  90
+)
+```
+
+Starts with a category average and applies 6 multiplicative adjustments. Multipliers < 1.0 speed up the estimate; > 1.0 slow it down.
+
+**Why multiplicative?** Each factor independently scales the base. A free item (0.5x) from a responsive seller (0.8x) in new condition (0.7x) with high heat (0.4x) compounds: `14 × 0.5 × 0.8 × 0.7 × 0.4 = 1.6 days`. Additive scoring wouldn't capture this compounding effect.
+
+<details>
+<summary>All 6 multiplier tables</summary>
+
+**Price Ratio** (listing price / median of similar items):
+
+| Ratio | Multiplier | Reasoning |
+|-------|-----------|-----------|
+| ≤ 0.4 | 0.5x | Far below market — sells very fast |
+| 0.41-0.7 | 0.65x | Below market |
+| 0.71-0.9 | 0.8x | Slightly below |
+| 0.91-1.1 | 1.0x | At market rate |
+| 1.11-1.3 | 1.3x | Above market — takes longer |
+| 1.31-1.6 | 1.7x | Significantly overpriced |
+| > 1.6 | 2.0x | Very overpriced — may never sell |
+
+**Heat Score:**
+
+| Heat | Multiplier | Reasoning |
+|------|-----------|-----------|
+| 80+ | 0.4x | Already going viral |
+| 60-79 | 0.55x | High demand |
+| 40-59 | 0.7x | Moderate interest |
+| 20-39 | 1.0x | Normal |
+| < 20 | 1.5x | Low interest — slower sell |
+
+**Condition:**
+
+| Condition | Multiplier | Reasoning |
+|-----------|-----------|-----------|
+| New / Like New | 0.7x | Buyers prefer pristine items |
+| Good | 0.9x | Acceptable to most |
+| Fair | 1.3x | Limits buyer pool |
+| Salvage | 1.5x | Niche audience only |
+
+**Price Point** (absolute dollar amount):
+
+| Price | Multiplier | Reasoning |
+|-------|-----------|-----------|
+| $0 (free) | 0.5x | Free items go instantly |
+| $1-25 | 0.7x | Impulse buy range |
+| $26-50 | 0.8x | Low commitment |
+| $51-100 | 0.9x | Moderate |
+| $101-500 | 1.0x | Standard range |
+| $501-1000 | 1.3x | Requires deliberation |
+| > $1000 | 1.5x | Major purchase — slow decision |
+
+**Weekend:** Posted on weekend = 0.9x (more buyers browsing).
+
+**Seller Responsiveness:** Responsive = 0.8x (faster communication closes deals).
+</details>
+
+**Base days:** Uses category historical average if available, otherwise defaults to 14 days.
+
+**Urgency:** Act Fast (≤2 days), Moderate (3-7 days), Take Your Time (>7 days).
+
+**Example:** A "Like New" dresser ($75, 60% of median, heat score 65, responsive seller, posted Saturday) with 10 days category average:
+`10 × 0.65 × 0.55 × 0.7 × 0.8 × 0.9 × 0.8 = 1.3 days` → **Act Fast**
+
+---
+
+### Combined ML + Heuristic Scoring
+
+When the TF.js model is loaded (planned Pro feature), scores are blended:
+
+```
+combinedScore = round(mlScore × 100 × 0.7 + heuristicScore × 0.3)
+```
+
+**Why 70/30?** A trained ML model analyzing raw pixels has fundamentally more information than 5 binary heuristic signals. But heuristics catch things the model might miss (like resolution metadata). The 30% heuristic weight acts as a sanity check.
+
+**When ML is unavailable:** `combinedScore = heuristicScore` (100% heuristic, no degradation).
+
+---
+
+### Related Listings Relevance
+
+**Formula:** `relevance = min(titleSim × 0.45 + categoryMatch × 0.20 + priceProximity × 0.20 + conditionMatch × 0.10 + locationProximity × 0.05, 1.0)`
+
+| Component | Weight | Calculation | Reasoning |
+|-----------|--------|-------------|-----------|
+| Title similarity | 0.45 | Jaccard similarity on title tokens (only if > 0.1) | Title is the strongest indicator of item similarity |
+| Category match | 0.20 | 1.0 if exact category match, else 0 | Same category = likely comparable |
+| Price proximity | 0.20 | `(1 - abs(1 - priceRatio) / deviation)` within ±50% | Similar price suggests similar item tier |
+| Condition match | 0.10 | 1.0 if same condition (excludes "unknown") | Same condition = more directly comparable |
+| Location proximity | 0.05 | 1.0 if distance difference ≤ 10 miles | Nearby items are more actionable |
+
+**Jaccard similarity:** `|A ∩ B| / |A ∪ B|` where A and B are sets of title tokens (with stop words removed).
+
+**Minimum threshold:** relevance must be ≥ 0.15 to appear in results.
+
+---
+
+### Fuzzy Keyword Matching
+
+**Algorithm:** Levenshtein edit distance with normalized threshold.
+
+```
+distance = levenshteinDistance(keyword, titleWord)    // minimum single-char edits to transform one into the other
+normalizedDistance = distance / max(len(keyword), len(titleWord))
+isMatch = normalizedDistance ≤ threshold
+```
+
+| Fuzzy Level | Threshold | What It Catches |
+|-------------|-----------|-----------------|
+| Off | 0 | Exact substring only |
+| Low | 0.15 | 1 typo in 7+ character words (e.g. "corvete" → "corvette") |
+| Medium | 0.25 | 1-2 typos (e.g. "ikea malm" → "ikia malm") |
+| High | 0.40 | Aggressive matching — may produce false positives |
+
+**Quoted phrases** (e.g. `"mid century"`) always use exact substring matching regardless of fuzzy level, because edit distance doesn't work well on multi-word phrases.
+
+**Multi-word unquoted keywords:** Every token in the keyword must fuzzy-match at least one word in the title. This prevents "ikea malm" from matching "ikea kallax".
+
+---
+
+### Price Drop Detection
+
+**Formula:** `dropPercent = ((previousPrice - currentPrice) / previousPrice) × 100`
+
+**Trigger:** `dropPercent ≥ 5%` (default threshold).
+
+**Why 5%?** Smaller drops are often rounding or minor adjustments. A 5% drop on a $200 item ($10) represents a meaningful price change that's worth notifying about.
+
+**Safety checks:** Skips if `currentPrice ≥ previousPrice` (no drop) or `previousPrice = 0` (avoids division by zero).
 
 ---
 
