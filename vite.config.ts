@@ -1,29 +1,48 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
-import { copyFileSync, mkdirSync, existsSync } from 'fs';
+import { copyFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
 
 const browser = process.env.BROWSER || 'chrome';
 
-function copyManifestPlugin() {
+function copyExtensionAssetsPlugin() {
   return {
-    name: 'copy-manifest',
+    name: 'copy-extension-assets',
     writeBundle() {
       const distDir = resolve(__dirname, 'dist');
       if (!existsSync(distDir)) {
         mkdirSync(distDir, { recursive: true });
       }
+
+      // Copy manifest
       const manifestSrc = resolve(__dirname, `public/manifest.${browser}.json`);
       const manifestDest = resolve(distDir, 'manifest.json');
       if (existsSync(manifestSrc)) {
         copyFileSync(manifestSrc, manifestDest);
+      }
+
+      // Copy icons
+      const iconsSrc = resolve(__dirname, 'src/assets/icons');
+      const iconsDest = resolve(distDir, 'assets/icons');
+      if (existsSync(iconsSrc)) {
+        mkdirSync(iconsDest, { recursive: true });
+        for (const file of readdirSync(iconsSrc)) {
+          copyFileSync(resolve(iconsSrc, file), resolve(iconsDest, file));
+        }
+      }
+
+      // Copy popup.html to root (Vite outputs it nested under src/ui/popup/)
+      const popupSrc = resolve(distDir, 'src/ui/popup/index.html');
+      const popupDest = resolve(distDir, 'popup.html');
+      if (existsSync(popupSrc)) {
+        copyFileSync(popupSrc, popupDest);
       }
     },
   };
 }
 
 export default defineConfig({
-  plugins: [react(), copyManifestPlugin()],
+  plugins: [react(), copyExtensionAssetsPlugin()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
@@ -50,7 +69,7 @@ export default defineConfig({
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]',
+        assetFileNames: 'assets/[name].[ext]',
       },
     },
   },
