@@ -107,13 +107,17 @@
   padding: var(--mps-spacing-md, 12px) var(--mps-spacing-lg, 16px);
 }
 
+.mps-sidebar-section {
+  margin-bottom: var(--mps-spacing-md, 12px);
+}
+
 /* ==========================================================================
    Sidebar Toggle Button
    ========================================================================== */
 
 .mps-sidebar-toggle {
   position: fixed;
-  bottom: 20px;
+  bottom: 80px;
   right: 20px;
   width: var(--mps-toggle-size);
   height: var(--mps-toggle-size);

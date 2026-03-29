@@ -83,10 +83,69 @@ export class DomInjector {
       header.appendChild(closeBtn);
       sidebar.appendChild(header);
 
-      // Content area (to be populated by UI components)
+      // Content area
       const content = document.createElement("div");
       content.className = "mps-sidebar-content";
       content.setAttribute("data-mps-part", "sidebar-content");
+
+      // Stats section
+      const stats = document.createElement("div");
+      stats.className = "mps-sidebar-section";
+      stats.innerHTML = `
+        <div style="padding: 12px; background: var(--mps-color-background, #f0f2f5); border-radius: 8px; margin-bottom: 12px;">
+          <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">Listing Stats</div>
+          <div id="mps-stats-content" style="font-size: 12px; color: var(--mps-color-text-secondary, #65676b);">
+            Scanning listings...
+          </div>
+        </div>
+      `;
+      content.appendChild(stats);
+
+      // Keyword filter
+      const filterSection = document.createElement("div");
+      filterSection.className = "mps-sidebar-section";
+      filterSection.innerHTML = `
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px;">Keyword Filter</label>
+          <input type="text" id="mps-keyword-input" data-mps-filter-input
+            placeholder="e.g. dresser, iPhone, couch"
+            style="width: 100%; padding: 8px 12px; border: 1px solid var(--mps-color-border, #ced0d4); border-radius: 6px; font-size: 13px; box-sizing: border-box; background: var(--mps-color-surface, #fff); color: var(--mps-color-text-primary, #1c1e21);" />
+          <div style="font-size: 11px; color: var(--mps-color-text-secondary, #65676b); margin-top: 4px;">
+            Separate keywords with commas. Use "quotes" for exact phrases.
+          </div>
+        </div>
+      `;
+      content.appendChild(filterSection);
+
+      // Price filter
+      const priceSection = document.createElement("div");
+      priceSection.className = "mps-sidebar-section";
+      priceSection.innerHTML = `
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px;">Price Range</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="number" id="mps-price-min" placeholder="Min"
+              style="flex: 1; padding: 8px; border: 1px solid var(--mps-color-border, #ced0d4); border-radius: 6px; font-size: 13px; box-sizing: border-box; background: var(--mps-color-surface, #fff); color: var(--mps-color-text-primary, #1c1e21);" />
+            <span style="color: var(--mps-color-text-secondary, #65676b);">to</span>
+            <input type="number" id="mps-price-max" placeholder="Max"
+              style="flex: 1; padding: 8px; border: 1px solid var(--mps-color-border, #ced0d4); border-radius: 6px; font-size: 13px; box-sizing: border-box; background: var(--mps-color-surface, #fff); color: var(--mps-color-text-primary, #1c1e21);" />
+          </div>
+        </div>
+      `;
+      content.appendChild(priceSection);
+
+      // Info section
+      const info = document.createElement("div");
+      info.className = "mps-sidebar-section";
+      info.innerHTML = `
+        <div style="padding: 12px; background: var(--mps-color-background, #f0f2f5); border-radius: 8px; font-size: 12px; color: var(--mps-color-text-secondary, #65676b);">
+          <div style="font-weight: 600; margin-bottom: 4px;">MarketplaceSucks v0.1.0</div>
+          <div>All processing runs locally. No data leaves your browser.</div>
+          <div style="margin-top: 4px;">Press Alt+S to toggle this sidebar.</div>
+        </div>
+      `;
+      content.appendChild(info);
+
       sidebar.appendChild(content);
 
       document.body.appendChild(sidebar);

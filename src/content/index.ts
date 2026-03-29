@@ -150,6 +150,22 @@ async function bootstrap(): Promise<void> {
           total: knownListings.size,
         });
         console.log(`${LOG_PREFIX} Parsed ${newListings.length} new listings (${knownListings.size} total)`);
+
+        // Update sidebar stats
+        const statsEl = document.getElementById("mps-stats-content");
+        if (statsEl) {
+          const prices = Array.from(knownListings.values())
+            .map((l) => l.price)
+            .filter((p): p is number => p !== null);
+          const avgPrice = prices.length > 0
+            ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length)
+            : 0;
+          statsEl.innerHTML = `
+            <div><strong>${knownListings.size}</strong> listings found</div>
+            <div>Average price: <strong>$${avgPrice}</strong></div>
+            <div>Price range: <strong>$${prices.length > 0 ? Math.min(...prices) : 0}</strong> - <strong>$${prices.length > 0 ? Math.max(...prices) : 0}</strong></div>
+          `;
+        }
       }
     });
 
@@ -204,6 +220,41 @@ async function bootstrap(): Promise<void> {
 
     // 6. Inject UI elements
     injector.injectToggleButton();
+    injector.injectSidebar();
+
+    // Wire keyword filter input
+    const keywordInput = document.getElementById("mps-keyword-input");
+    if (keywordInput) {
+      let keywordTimer: ReturnType<typeof setTimeout> | null = null;
+      keywordInput.addEventListener("input", () => {
+        if (keywordTimer) clearTimeout(keywordTimer);
+        keywordTimer = setTimeout(() => {
+          const value = (keywordInput as HTMLInputElement).value.trim();
+          if (value) {
+            activeFilters.set("keyword-include", { keywords: value, fuzzyLevel: "medium" });
+          } else {
+            activeFilters.delete("keyword-include");
+          }
+          eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "sidebar" });
+        }, 300);
+      });
+    }
+
+    // Wire price filter inputs
+    const priceMin = document.getElementById("mps-price-min") as HTMLInputElement | null;
+    const priceMax = document.getElementById("mps-price-max") as HTMLInputElement | null;
+    const handlePriceChange = () => {
+      const min = priceMin?.value ? parseFloat(priceMin.value) : null;
+      const max = priceMax?.value ? parseFloat(priceMax.value) : null;
+      if (min !== null || max !== null) {
+        activeFilters.set("price-range", { min, max });
+      } else {
+        activeFilters.delete("price-range");
+      }
+      eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "sidebar" });
+    };
+    priceMin?.addEventListener("input", handlePriceChange);
+    priceMax?.addEventListener("input", handlePriceChange);
 
     // Wire toggle button click
     const toggleBtn = document.getElementById("mps-sidebar-toggle");
