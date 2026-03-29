@@ -33,7 +33,14 @@ import { injectCSSVariables } from "@/design-system/theme/css-variables";
 import { EventBus, MPS_EVENTS } from "@/core/utils/event-bus";
 import { filterRegistry } from "@/core/filters/filter-registry";
 import { FilterEngine } from "@/core/filters/filter-engine";
+import { KeywordFilter } from "@/core/filters/keyword-filter";
+import { KeywordExcludeFilter } from "@/core/filters/keyword-exclude-filter";
+import { PriceFilter } from "@/core/filters/price-filter";
+import { ConditionFilter } from "@/core/filters/condition-filter";
+import { DistanceFilter } from "@/core/filters/distance-filter";
+import { DateFilter } from "@/core/filters/date-filter";
 import { sortRegistry } from "@/core/sorters/sort-registry";
+import { ALL_SORTERS } from "@/core/sorters/sorters";
 import { SortEngine } from "@/core/sorters/sort-engine";
 import type { Listing } from "@/core/models/listing";
 
@@ -104,6 +111,21 @@ async function bootstrap(): Promise<void> {
     cleanupFns.push(stopThemeObserver);
 
     // 2. Shared infrastructure
+    // Register all filters
+    filterRegistry.register(new KeywordFilter());
+    filterRegistry.register(new KeywordExcludeFilter());
+    filterRegistry.register(new PriceFilter());
+    filterRegistry.register(new ConditionFilter());
+    filterRegistry.register(new DistanceFilter());
+    filterRegistry.register(new DateFilter());
+    console.log(`${LOG_PREFIX} Registered ${filterRegistry.size} filters`);
+
+    // Register all sorters
+    for (const sorter of ALL_SORTERS) {
+      sortRegistry.register(sorter);
+    }
+    console.log(`${LOG_PREFIX} Registered ${sortRegistry.size} sorters`);
+
     const eventBus = new EventBus();
     const filterEngine = new FilterEngine(filterRegistry);
     const sortEngine = new SortEngine(sortRegistry);
