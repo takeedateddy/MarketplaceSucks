@@ -41,6 +41,7 @@ import { ListingObserver } from "@/content/listing-observer";
 import { ListingParser } from "@/content/listing-parser";
 import { DomInjector } from "@/content/dom-injector";
 import { DomManipulator } from "@/content/dom-manipulator";
+import { runSelectorHealthCheck } from "@/content/selector-health-checker";
 import { DetailPageEnhancer } from "@/content/detail-page-enhancer";
 
 // ---------------------------------------------------------------------------
@@ -256,9 +257,11 @@ async function bootstrap(): Promise<void> {
           return;
         }
         case "run-selector-health-check": {
-          return import("@/content/selector-health-checker").then(
-            (mod) => mod.runSelectorHealthCheck(),
-          ).catch(() => undefined);
+          try {
+            return Promise.resolve(runSelectorHealthCheck());
+          } catch {
+            return;
+          }
         }
         default:
           return;
