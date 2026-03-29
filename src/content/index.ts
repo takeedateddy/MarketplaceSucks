@@ -27,6 +27,7 @@
 import "./styles.css";
 
 import { storageGet, onStorageChanged } from "@/platform/storage";
+import { browser } from "@/platform/browser";
 import { detectFacebookTheme, observeThemeChanges } from "@/design-system/theme/theme-detector";
 import { injectCSSVariables } from "@/design-system/theme/css-variables";
 import { EventBus, MPS_EVENTS } from "@/core/utils/event-bus";
@@ -221,6 +222,37 @@ async function bootstrap(): Promise<void> {
       const target = e.target as Element;
       if (target.closest("[data-mps-action='close-sidebar']")) {
         eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: false });
+      }
+    });
+
+    // 6b. Listen for messages from popup/background
+    browser.runtime.onMessage.addListener((message: unknown) => {
+      const msg = message as { action?: string };
+      switch (msg.action) {
+        case "toggle-sidebar": {
+          const sidebar = document.getElementById("mps-sidebar");
+          if (!sidebar) {
+            injector.injectSidebar();
+          }
+          const isOpen = document.getElementById("mps-sidebar")?.getAttribute("data-mps-open") === "true";
+          eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: !isOpen });
+          break;
+        }
+        case "focus-filter": {
+          const filterInput = document.querySelector<HTMLInputElement>("[data-mps-filter-input]");
+          if (filterInput) filterInput.focus();
+          break;
+        }
+        case "clear-filters": {
+          activeFilters.clear();
+          eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "keyboard" });
+          break;
+        }
+        case "run-selector-health-check": {
+          return import("@/content/selector-health-checker").then(
+            (mod) => mod.runSelectorHealthCheck(),
+          ).catch(() => undefined);
+        }
       }
     });
 
