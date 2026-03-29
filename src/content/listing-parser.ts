@@ -401,10 +401,14 @@ export class ListingParser implements IListingParser {
       }
 
       // Strategy 3: regex the entire card text for first dollar amount
+      // Cap at $100,000 to avoid matching tracking IDs in Facebook's data attributes
       const fullText = element.textContent ?? '';
       const priceMatch = fullText.match(/\$[\d,]+(?:\.\d{2})?/);
       if (priceMatch) {
-        return priceMatch[0];
+        const value = parseFloat(priceMatch[0].replace(/[$,]/g, ''));
+        if (value <= 100000) {
+          return priceMatch[0];
+        }
       }
 
       return null;

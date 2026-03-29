@@ -130,10 +130,10 @@ export class DomInjector {
         <div style="margin-bottom: 12px;">
           <label style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px;">Price Range</label>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="number" id="mps-price-min" placeholder="Min"
+            <input type="number" id="mps-price-min" placeholder="Min" min="0" step="1"
               style="flex: 1; padding: 8px; border: 1px solid var(--mps-color-border, #ced0d4); border-radius: 6px; font-size: 13px; box-sizing: border-box; background: var(--mps-color-surface, #fff); color: var(--mps-color-text-primary, #1c1e21);" />
             <span style="color: var(--mps-color-text-secondary, #65676b);">to</span>
-            <input type="number" id="mps-price-max" placeholder="Max"
+            <input type="number" id="mps-price-max" placeholder="Max" min="0" step="1"
               style="flex: 1; padding: 8px; border: 1px solid var(--mps-color-border, #ced0d4); border-radius: 6px; font-size: 13px; box-sizing: border-box; background: var(--mps-color-surface, #fff); color: var(--mps-color-text-primary, #1c1e21);" />
           </div>
         </div>
