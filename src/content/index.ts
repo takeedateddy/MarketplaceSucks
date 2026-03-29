@@ -177,17 +177,34 @@ async function bootstrap(): Promise<void> {
         // Update sidebar stats
         const statsEl = document.getElementById("mps-stats-content");
         if (statsEl) {
-          const prices = Array.from(knownListings.values())
+          const allPrices = Array.from(knownListings.values())
             .map((l) => l.price)
-            .filter((p): p is number => p !== null);
-          const avgPrice = prices.length > 0
-            ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length)
-            : 0;
-          statsEl.innerHTML = `
-            <div><strong>${knownListings.size}</strong> listings found</div>
-            <div>Average price: <strong>$${avgPrice}</strong></div>
-            <div>Price range: <strong>$${prices.length > 0 ? Math.min(...prices) : 0}</strong> - <strong>$${prices.length > 0 ? Math.max(...prices) : 0}</strong></div>
-          `;
+            .filter((p): p is number => p !== null && p > 0);
+          const totalListings = knownListings.size;
+          const withPrices = allPrices.length;
+
+          if (allPrices.length > 0) {
+            const sorted = [...allPrices].sort((a, b) => a - b);
+            const median = sorted.length % 2 === 0
+              ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+              : sorted[Math.floor(sorted.length / 2)];
+            const avg = Math.round(allPrices.reduce((a, b) => a + b, 0) / allPrices.length);
+            const min = sorted[0];
+            const max = sorted[sorted.length - 1];
+            const fmt = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n}`;
+
+            statsEl.innerHTML = `
+              <div><strong>${totalListings}</strong> listings found (${withPrices} with prices)</div>
+              <div>Median price: <strong>${fmt(Math.round(median))}</strong></div>
+              <div>Average price: <strong>${fmt(avg)}</strong></div>
+              <div>Price range: <strong>${fmt(min)}</strong> - <strong>${fmt(max)}</strong></div>
+            `;
+          } else {
+            statsEl.innerHTML = `
+              <div><strong>${totalListings}</strong> listings found</div>
+              <div style="color: var(--mps-color-text-secondary, #65676b);">No prices extracted yet</div>
+            `;
+          }
         }
       }
     });
@@ -291,8 +308,10 @@ async function bootstrap(): Promise<void> {
     const priceMin = document.getElementById("mps-price-min") as HTMLInputElement | null;
     const priceMax = document.getElementById("mps-price-max") as HTMLInputElement | null;
     const handlePriceChange = () => {
-      const min = priceMin?.value ? parseFloat(priceMin.value) : null;
-      const max = priceMax?.value ? parseFloat(priceMax.value) : null;
+      const rawMin = priceMin?.value ? parseFloat(priceMin.value) : null;
+      const rawMax = priceMax?.value ? parseFloat(priceMax.value) : null;
+      const min = rawMin !== null && rawMin >= 0 ? rawMin : null;
+      const max = rawMax !== null && rawMax >= 0 ? rawMax : null;
       if (min !== null || max !== null) {
         activeFilters.set("price-range", { min, max });
       } else {
