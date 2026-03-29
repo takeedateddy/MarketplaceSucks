@@ -190,6 +190,13 @@ async function bootstrap(): Promise<void> {
         if (sidebar) {
           sidebar.setAttribute("data-mps-open", String(open));
         }
+
+        // Push page content left so sidebar doesn't overlap
+        const mainContent = document.querySelector('[role="main"]') as HTMLElement | null;
+        if (mainContent) {
+          mainContent.style.transition = "margin-right 200ms ease-in-out";
+          mainContent.style.marginRight = open ? "var(--mps-sidebar-width, 360px)" : "";
+        }
       } catch (err) {
         console.warn(`${LOG_PREFIX} Error toggling sidebar:`, err);
       }
