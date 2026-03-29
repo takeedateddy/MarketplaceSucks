@@ -1,0 +1,19 @@
+# Code Owners — requires review from @takeedateddy for sensitive files
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Funding and sponsorship
+/.github/FUNDING.yml @takeedateddy
+
+# CI/CD workflows — prevent malicious script injection
+/.github/workflows/ @takeedateddy
+
+# Extension manifests — control permissions and identity
+/public/manifest.*.json @takeedateddy
+
+# Dependencies and build scripts
+/package.json @takeedateddy
+
+# Legal documents
+/LICENSE @takeedateddy
+/PRIVACY.md @takeedateddy
+/CLA.md @takeedateddy
