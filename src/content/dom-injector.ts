@@ -70,17 +70,36 @@ export class DomInjector {
       sidebar.setAttribute("aria-label", "MarketplaceSucks filters and tools");
       sidebar.setAttribute("data-mps-open", "true");
 
-      // Header
+      // Header with collapse toggle
       const header = document.createElement("div");
       header.className = "mps-sidebar-header";
       header.setAttribute("data-mps-part", "sidebar-header");
+
+      const collapseBtn = document.createElement("button");
+      collapseBtn.id = "mps-collapse-toggle";
+      collapseBtn.className = "mps-collapse-toggle";
+      collapseBtn.setAttribute("aria-label", "Toggle sidebar width");
+      collapseBtn.setAttribute("title", "Collapse / Expand");
+      collapseBtn.innerHTML = "&#x00AB;"; // « chevron
 
       const title = document.createElement("h2");
       title.className = "mps-sidebar-title";
       title.textContent = "MarketplaceSucks";
 
+      header.appendChild(collapseBtn);
       header.appendChild(title);
       sidebar.appendChild(header);
+
+      // Collapsed state icon buttons (visible only when collapsed)
+      const collapsedIcons = document.createElement("div");
+      collapsedIcons.className = "mps-collapsed-icons";
+      collapsedIcons.innerHTML = `
+        <button class="mps-collapsed-icon-btn" title="Search" data-mps-action="expand-search">&#x1F50D;</button>
+        <button class="mps-collapsed-icon-btn" title="Price Filter" data-mps-action="expand-price">&#x1F4B2;</button>
+        <button class="mps-collapsed-icon-btn" title="Sort" data-mps-action="expand-sort">&#x2195;</button>
+        <button class="mps-collapsed-icon-btn" title="Stats" data-mps-action="expand-stats">&#x1F4CA;</button>
+      `;
+      sidebar.appendChild(collapsedIcons);
 
       // Content area
       const content = document.createElement("div");
@@ -191,11 +210,17 @@ export class DomInjector {
       const fbLeftNav = this.findFacebookLeftNav();
       if (fbLeftNav) {
         // Hide Facebook's nav and insert ours in the same position
+        // Match the original nav's width so we fit the same space
+        const fbNavWidth = fbLeftNav.getBoundingClientRect().width;
+        if (fbNavWidth > 100) {
+          sidebar.style.setProperty("--mps-sidebar-width", `${Math.round(fbNavWidth)}px`);
+        }
+
         fbLeftNav.setAttribute("data-mps-original-display", getComputedStyle(fbLeftNav).display);
         fbLeftNav.style.display = "none";
         fbLeftNav.setAttribute("data-mps-hidden-nav", "true");
         fbLeftNav.parentElement?.insertBefore(sidebar, fbLeftNav);
-        console.log("[MPS] Replaced Facebook left nav with MPS controls");
+        console.log(`[MPS] Replaced Facebook left nav (${Math.round(fbNavWidth)}px) with MPS controls`);
       } else {
         // Fallback: append to body as a left-side fixed panel
         document.body.appendChild(sidebar);

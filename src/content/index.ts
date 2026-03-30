@@ -302,6 +302,29 @@ async function bootstrap(): Promise<void> {
       eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "sidebar" });
     });
 
+    // Wire collapse/expand toggle
+    const collapseToggle = document.getElementById("mps-collapse-toggle");
+    collapseToggle?.addEventListener("click", () => {
+      const sidebar = document.getElementById("mps-sidebar");
+      if (sidebar) {
+        const isCollapsed = sidebar.getAttribute("data-mps-collapsed") === "true";
+        sidebar.setAttribute("data-mps-collapsed", String(!isCollapsed));
+        // Update toggle icon: « when expanded, » when collapsed
+        collapseToggle.innerHTML = isCollapsed ? "&#x00AB;" : "&#x00BB;";
+      }
+    });
+
+    // Collapsed icon buttons expand the sidebar when clicked
+    document.querySelectorAll(".mps-collapsed-icon-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const sidebar = document.getElementById("mps-sidebar");
+        if (sidebar) {
+          sidebar.setAttribute("data-mps-collapsed", "false");
+          if (collapseToggle) collapseToggle.innerHTML = "&#x00AB;";
+        }
+      });
+    });
+
     // Wire clear filters button
     const clearBtn = document.getElementById("mps-clear-filters-btn");
     clearBtn?.addEventListener("click", () => {

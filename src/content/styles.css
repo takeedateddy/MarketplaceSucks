@@ -16,7 +16,8 @@
    ========================================================================== */
 
 :root {
-  --mps-sidebar-width: 360px;
+  --mps-sidebar-width: 280px;
+  --mps-sidebar-collapsed-width: 48px;
   --mps-sidebar-bg: var(--mps-color-surface, #ffffff);
   --mps-sidebar-text: var(--mps-color-text-primary, #1c1e21);
   --mps-sidebar-border: var(--mps-color-border, #ced0d4);
@@ -42,6 +43,7 @@
 
 .mps-sidebar {
   width: var(--mps-sidebar-width);
+  min-width: var(--mps-sidebar-width);
   max-height: 100vh;
   background: var(--mps-sidebar-bg);
   color: var(--mps-sidebar-text);
@@ -53,6 +55,76 @@
   box-sizing: border-box;
   position: sticky;
   top: 0;
+  transition: width 0.2s ease, min-width 0.2s ease;
+}
+
+/* Collapsed state — narrow icon bar */
+.mps-sidebar[data-mps-collapsed="true"] {
+  width: var(--mps-sidebar-collapsed-width);
+  min-width: var(--mps-sidebar-collapsed-width);
+}
+
+.mps-sidebar[data-mps-collapsed="true"] .mps-sidebar-content,
+.mps-sidebar[data-mps-collapsed="true"] .mps-sidebar-title {
+  display: none;
+}
+
+.mps-sidebar[data-mps-collapsed="true"] .mps-sidebar-header {
+  flex-direction: column;
+  padding: 8px 4px;
+}
+
+/* Collapse toggle button */
+.mps-collapse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--mps-radius-full, 50%);
+  background: transparent;
+  color: var(--mps-color-text-secondary, #65676b);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.mps-collapse-toggle:hover {
+  background: var(--mps-color-background, #f0f2f5);
+}
+
+/* Collapsed icon buttons */
+.mps-collapsed-icons {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.mps-sidebar[data-mps-collapsed="true"] .mps-collapsed-icons {
+  display: flex;
+}
+
+.mps-collapsed-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mps-color-text-secondary, #65676b);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.mps-collapsed-icon-btn:hover {
+  background: var(--mps-color-background, #f0f2f5);
 }
 
 .mps-sidebar-header {
