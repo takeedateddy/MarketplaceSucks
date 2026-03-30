@@ -214,7 +214,6 @@ async function bootstrap(): Promise<void> {
 
     // 5. Inject UI elements FIRST (before loading settings, so sidebar exists
     //    when loadSettings emits SIDEBAR_TOGGLED to restore open state)
-    injector.injectToggleButton();
     injector.injectSidebar();
 
     // 6. Load persisted settings (may emit SIDEBAR_TOGGLED to reopen sidebar)
@@ -314,33 +313,6 @@ async function bootstrap(): Promise<void> {
       if (priceMax) priceMax.value = "";
       if (sortSelect) sortSelect.value = "";
       eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "sidebar" });
-    });
-
-    // Wire "show Facebook nav" toggle
-    const fbNavToggle = document.getElementById("mps-toggle-fb-nav");
-    fbNavToggle?.addEventListener("click", () => {
-      eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: false });
-    });
-
-    // Wire toggle button click
-    const toggleBtn = document.getElementById("mps-sidebar-toggle");
-    if (toggleBtn) {
-      toggleBtn.addEventListener("click", () => {
-        const sidebar = document.getElementById("mps-sidebar");
-        if (!sidebar) {
-          injector.injectSidebar();
-        }
-        const isOpen = document.getElementById("mps-sidebar")?.getAttribute("data-mps-open") === "true";
-        eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: !isOpen });
-      });
-    }
-
-    // Wire sidebar close button (delegate on body since sidebar may not exist yet)
-    document.body.addEventListener("click", (e) => {
-      const target = e.target as Element;
-      if (target.closest("[data-mps-action='close-sidebar']")) {
-        eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: false });
-      }
     });
 
     // 6b. Listen for messages from popup/background
