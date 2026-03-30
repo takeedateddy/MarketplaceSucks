@@ -199,11 +199,10 @@ async function bootstrap(): Promise<void> {
           sidebar.setAttribute("data-mps-open", String(open));
         }
 
-        // Push page content left so sidebar doesn't overlap
-        const mainContent = document.querySelector('[role="main"]') as HTMLElement | null;
-        if (mainContent) {
-          mainContent.style.transition = "margin-right 200ms ease-in-out";
-          mainContent.style.marginRight = open ? "var(--mps-sidebar-width, 360px)" : "";
+        // Show/hide Facebook's original nav when our sidebar is toggled
+        const fbNav = document.querySelector("[data-mps-hidden-nav]") as HTMLElement | null;
+        if (fbNav) {
+          fbNav.style.display = open ? "none" : "";
         }
 
         // Persist sidebar state so it reopens after navigation/search
@@ -315,6 +314,12 @@ async function bootstrap(): Promise<void> {
       if (priceMax) priceMax.value = "";
       if (sortSelect) sortSelect.value = "";
       eventBus.emit(MPS_EVENTS.SETTINGS_CHANGED, { source: "sidebar" });
+    });
+
+    // Wire "show Facebook nav" toggle
+    const fbNavToggle = document.getElementById("mps-toggle-fb-nav");
+    fbNavToggle?.addEventListener("click", () => {
+      eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: false });
     });
 
     // Wire toggle button click

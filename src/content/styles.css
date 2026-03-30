@@ -41,28 +41,34 @@
    ========================================================================== */
 
 .mps-sidebar {
-  position: fixed;
-  top: 0;
-  right: 0;
   width: var(--mps-sidebar-width);
-  height: 100vh;
+  max-height: 100vh;
   background: var(--mps-sidebar-bg);
   color: var(--mps-sidebar-text);
-  border-left: 1px solid var(--mps-sidebar-border);
-  box-shadow: var(--mps-shadow-lg, -4px 0 12px rgba(0, 0, 0, 0.1));
-  z-index: var(--mps-z-sidebar, 10000);
+  border-right: 1px solid var(--mps-sidebar-border);
   overflow-y: auto;
   overflow-x: hidden;
-  transform: translateX(100%);
-  transition: transform var(--mps-transition-speed) var(--mps-transition-easing);
   font-family: var(--mps-font-family-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
   font-size: var(--mps-font-size-sm, 14px);
   line-height: var(--mps-line-height-normal, 1.5);
   box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  transition: width var(--mps-transition-speed) var(--mps-transition-easing),
+              opacity var(--mps-transition-speed) var(--mps-transition-easing);
+}
+
+.mps-sidebar[data-mps-open="false"] {
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0;
+  border: none;
 }
 
 .mps-sidebar[data-mps-open="true"] {
-  transform: translateX(0);
+  width: var(--mps-sidebar-width);
+  opacity: 1;
 }
 
 .mps-sidebar-header {
@@ -117,8 +123,8 @@
 
 .mps-sidebar-toggle {
   position: fixed;
-  bottom: 80px;
-  right: 20px;
+  bottom: 20px;
+  left: 20px;
   width: var(--mps-toggle-size);
   height: var(--mps-toggle-size);
   border: none;

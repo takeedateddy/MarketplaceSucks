@@ -52,6 +52,11 @@ export class DomInjector {
    *
    * @returns The sidebar container element, or `null` if injection failed.
    */
+  /**
+   * Inject the MPS controls by replacing Facebook's left navigation sidebar.
+   * The original nav is hidden (not removed) so it can be toggled back.
+   * If no left nav is found, falls back to creating a fixed-position panel.
+   */
   injectSidebar(): HTMLElement | null {
     try {
       const existing = document.getElementById(ELEMENT_IDS.sidebar);
@@ -63,8 +68,9 @@ export class DomInjector {
       sidebar.setAttribute("data-mps-component", "sidebar");
       sidebar.setAttribute("role", "complementary");
       sidebar.setAttribute("aria-label", "MarketplaceSucks filters and tools");
+      sidebar.setAttribute("data-mps-open", "true");
 
-      // Header
+      // Header with toggle back to FB nav
       const header = document.createElement("div");
       header.className = "mps-sidebar-header";
       header.setAttribute("data-mps-part", "sidebar-header");
@@ -73,14 +79,26 @@ export class DomInjector {
       title.className = "mps-sidebar-title";
       title.textContent = "MarketplaceSucks";
 
+      const headerActions = document.createElement("div");
+      headerActions.style.cssText = "display: flex; gap: 4px;";
+
+      const fbNavBtn = document.createElement("button");
+      fbNavBtn.id = "mps-toggle-fb-nav";
+      fbNavBtn.className = "mps-sidebar-close";
+      fbNavBtn.setAttribute("aria-label", "Show Facebook navigation");
+      fbNavBtn.setAttribute("title", "Show Facebook navigation");
+      fbNavBtn.textContent = "\u2630"; // hamburger icon
+
       const closeBtn = document.createElement("button");
       closeBtn.className = "mps-sidebar-close";
       closeBtn.setAttribute("data-mps-action", "close-sidebar");
       closeBtn.setAttribute("aria-label", "Close sidebar");
       closeBtn.textContent = "\u00D7";
 
+      headerActions.appendChild(fbNavBtn);
+      headerActions.appendChild(closeBtn);
       header.appendChild(title);
-      header.appendChild(closeBtn);
+      header.appendChild(headerActions);
       sidebar.appendChild(header);
 
       // Content area
@@ -188,12 +206,60 @@ export class DomInjector {
 
       sidebar.appendChild(content);
 
-      document.body.appendChild(sidebar);
+      // Try to replace Facebook's left navigation sidebar
+      const fbLeftNav = this.findFacebookLeftNav();
+      if (fbLeftNav) {
+        // Hide Facebook's nav and insert ours in the same position
+        fbLeftNav.setAttribute("data-mps-original-display", getComputedStyle(fbLeftNav).display);
+        fbLeftNav.style.display = "none";
+        fbLeftNav.setAttribute("data-mps-hidden-nav", "true");
+        fbLeftNav.parentElement?.insertBefore(sidebar, fbLeftNav);
+        console.log("[MPS] Replaced Facebook left nav with MPS controls");
+      } else {
+        // Fallback: append to body as a left-side fixed panel
+        document.body.appendChild(sidebar);
+        console.log("[MPS] No Facebook left nav found, using fixed panel");
+      }
+
       return sidebar;
     } catch (err) {
       console.warn("[MPS] Failed to inject sidebar:", err);
       return null;
     }
+  }
+
+  /**
+   * Find Facebook's left sidebar navigation element.
+   * Facebook wraps the left Marketplace nav (Browse all, Jobs, etc.)
+   * in a container that's a sibling of the main content area.
+   */
+  private findFacebookLeftNav(): HTMLElement | null {
+    // Facebook's left sidebar is typically the first child of role="main"'s parent
+    // or a sibling nav-like element
+    const selectors = [
+      '[role="navigation"][aria-label*="Marketplace"]',
+      '[role="main"] ~ div:first-of-type',
+      '[data-pagelet="LeftRail"]',
+      '[role="main"]',
+    ];
+
+    // The left nav contains "Browse all", "Jobs", "Create new listing" etc.
+    // Find an element that contains these navigation links
+    const navLinks = document.querySelectorAll('a[href="/marketplace/"]');
+    for (const link of Array.from(navLinks)) {
+      // Walk up to find the nav container
+      let parent = link.parentElement;
+      for (let i = 0; i < 10 && parent; i++) {
+        // Check if this looks like the left nav container
+        const rect = parent.getBoundingClientRect();
+        if (rect.width > 100 && rect.width < 400 && rect.left < 300 && rect.height > 300) {
+          return parent as HTMLElement;
+        }
+        parent = parent.parentElement;
+      }
+    }
+
+    return null;
   }
 
   /**
