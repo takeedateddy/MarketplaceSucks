@@ -234,15 +234,6 @@ export class DomInjector {
    * in a container that's a sibling of the main content area.
    */
   private findFacebookLeftNav(): HTMLElement | null {
-    // Facebook's left sidebar is typically the first child of role="main"'s parent
-    // or a sibling nav-like element
-    const selectors = [
-      '[role="navigation"][aria-label*="Marketplace"]',
-      '[role="main"] ~ div:first-of-type',
-      '[data-pagelet="LeftRail"]',
-      '[role="main"]',
-    ];
-
     // The left nav contains "Browse all", "Jobs", "Create new listing" etc.
     // Find an element that contains these navigation links
     const navLinks = document.querySelectorAll('a[href="/marketplace/"]');
