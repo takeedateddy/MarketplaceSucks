@@ -70,7 +70,7 @@ export class DomInjector {
       sidebar.setAttribute("aria-label", "MarketplaceSucks filters and tools");
       sidebar.setAttribute("data-mps-open", "true");
 
-      // Header with toggle back to FB nav
+      // Header
       const header = document.createElement("div");
       header.className = "mps-sidebar-header";
       header.setAttribute("data-mps-part", "sidebar-header");
@@ -79,26 +79,7 @@ export class DomInjector {
       title.className = "mps-sidebar-title";
       title.textContent = "MarketplaceSucks";
 
-      const headerActions = document.createElement("div");
-      headerActions.style.cssText = "display: flex; gap: 4px;";
-
-      const fbNavBtn = document.createElement("button");
-      fbNavBtn.id = "mps-toggle-fb-nav";
-      fbNavBtn.className = "mps-sidebar-close";
-      fbNavBtn.setAttribute("aria-label", "Show Facebook navigation");
-      fbNavBtn.setAttribute("title", "Show Facebook navigation");
-      fbNavBtn.textContent = "\u2630"; // hamburger icon
-
-      const closeBtn = document.createElement("button");
-      closeBtn.className = "mps-sidebar-close";
-      closeBtn.setAttribute("data-mps-action", "close-sidebar");
-      closeBtn.setAttribute("aria-label", "Close sidebar");
-      closeBtn.textContent = "\u00D7";
-
-      headerActions.appendChild(fbNavBtn);
-      headerActions.appendChild(closeBtn);
       header.appendChild(title);
-      header.appendChild(headerActions);
       sidebar.appendChild(header);
 
       // Content area
@@ -234,16 +215,33 @@ export class DomInjector {
    * in a container that's a sibling of the main content area.
    */
   private findFacebookLeftNav(): HTMLElement | null {
-    // The left nav contains "Browse all", "Jobs", "Create new listing" etc.
-    // Find an element that contains these navigation links
+    // Facebook's left column contains "Marketplace" heading, search bar,
+    // "Browse all", "Jobs", "Notifications", categories, etc.
+    // We need to find the outermost container of the entire left column.
+
+    // Strategy 1: Find the "Marketplace" heading text and walk up
+    const allElements = document.querySelectorAll('h1, h2, span, div');
+    for (const el of Array.from(allElements)) {
+      if (el.textContent?.trim() === 'Marketplace' && el.tagName !== 'A') {
+        let parent = el.parentElement;
+        for (let i = 0; i < 15 && parent; i++) {
+          const rect = parent.getBoundingClientRect();
+          // Left column: left edge near 0, width 200-400px, tall
+          if (rect.left < 50 && rect.width > 150 && rect.width < 400 && rect.height > 400) {
+            return parent as HTMLElement;
+          }
+          parent = parent.parentElement;
+        }
+      }
+    }
+
+    // Strategy 2: Find nav links and walk up
     const navLinks = document.querySelectorAll('a[href="/marketplace/"]');
     for (const link of Array.from(navLinks)) {
-      // Walk up to find the nav container
       let parent = link.parentElement;
       for (let i = 0; i < 10 && parent; i++) {
-        // Check if this looks like the left nav container
         const rect = parent.getBoundingClientRect();
-        if (rect.width > 100 && rect.width < 400 && rect.left < 300 && rect.height > 300) {
+        if (rect.left < 50 && rect.width > 150 && rect.width < 400 && rect.height > 400) {
           return parent as HTMLElement;
         }
         parent = parent.parentElement;

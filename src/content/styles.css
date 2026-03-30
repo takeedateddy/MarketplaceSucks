@@ -45,7 +45,6 @@
   max-height: 100vh;
   background: var(--mps-sidebar-bg);
   color: var(--mps-sidebar-text);
-  border-right: 1px solid var(--mps-sidebar-border);
   overflow-y: auto;
   overflow-x: hidden;
   font-family: var(--mps-font-family-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
@@ -54,21 +53,6 @@
   box-sizing: border-box;
   position: sticky;
   top: 0;
-  transition: width var(--mps-transition-speed) var(--mps-transition-easing),
-              opacity var(--mps-transition-speed) var(--mps-transition-easing);
-}
-
-.mps-sidebar[data-mps-open="false"] {
-  width: 0;
-  overflow: hidden;
-  opacity: 0;
-  padding: 0;
-  border: none;
-}
-
-.mps-sidebar[data-mps-open="true"] {
-  width: var(--mps-sidebar-width);
-  opacity: 1;
 }
 
 .mps-sidebar-header {
