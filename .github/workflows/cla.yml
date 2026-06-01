@@ -22,8 +22,12 @@ jobs:
         with:
           path-to-signatures: 'signatures/version1/cla.json'
           path-to-document: 'https://github.com/takeedateddy/MarketplaceSucks/blob/main/CLA.md'
-          branch: 'main'
-          allowlist: dependabot[bot],github-actions[bot],noreply@anthropic.com
+          # Store signatures on a dedicated branch so the bot doesn't have to
+          # push to the protected `main` (which requires a PR + the `build`
+          # check, and therefore rejected the signature commit).
+          branch: 'cla-signatures'
+          # Repo owner + bots don't need to sign.
+          allowlist: takeedateddy,dependabot[bot],github-actions[bot],noreply@anthropic.com
           custom-notsigned-prcomment: |
             Thank you for your contribution! Before we can merge this PR, you need to sign our [Contributor License Agreement](https://github.com/takeedateddy/MarketplaceSucks/blob/main/CLA.md).
 

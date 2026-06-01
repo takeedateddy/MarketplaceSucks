@@ -67,6 +67,13 @@ import {
   buildSellerRecord,
 } from "@/content/detail-page-parser";
 import type { ImageAnalysisResult } from "@/background/image-analysis";
+import { PluginManager } from "@/plugins/plugin-manager";
+import type { PluginContext } from "@/plugins/plugin.interface";
+import { createBuiltinPlugins } from "@/plugins/builtin";
+import { ChromeStorageAdapter } from "@/platform/chrome-storage-adapter";
+import type { ISorter } from "@/core/interfaces/sorter.interface";
+import { DataWorkerClient } from "@/content/data-worker-client";
+import { mountComparisonBar } from "@/content/comparison-bar-mount";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -229,6 +236,27 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    // Plugin system: register bundled plugins with a context that exposes the
+    // event bus, storage, and the filter/sorter registries so plugins can
+    // extend the pipeline.
+    const pluginManager = new PluginManager();
+    const pluginContext: PluginContext = {
+      events: eventBus,
+      storage: new ChromeStorageAdapter(),
+      registerFilter: (filter) => filterRegistry.register(filter as IFilter),
+      registerSorter: (sorter) => sortRegistry.register(sorter as ISorter),
+    };
+    for (const plugin of createBuiltinPlugins()) {
+      await pluginManager.register(plugin, pluginContext);
+    }
+    cleanupFns.push(() => {
+      void pluginManager.teardownAll();
+    });
+
+    // Data-processing worker: offloads price aggregation from the main thread.
+    const dataWorker = new DataWorkerClient();
+    cleanupFns.push(() => dataWorker.terminate());
+
     // Enforce data-retention settings so IndexedDB stays bounded.
     storageGet<{ historyRetentionDays?: number; priceDataRetentionDays?: number }>(
       "mps:settings",
@@ -367,6 +395,14 @@ async function bootstrap(): Promise<void> {
           });
           // Fire-and-forget image analysis (no-op unless enabled in settings).
           void maybeScanImages(analyzed);
+          // Offload price-stats aggregation to the worker and persist for the popup.
+          const prices = Array.from(knownListings.values())
+            .map((l) => l.price)
+            .filter((p): p is number => p !== null && p > 0);
+          dataWorker
+            .aggregatePrices(prices)
+            .then((stats) => storageSet("mps-price-stats", stats))
+            .catch(() => {});
         } catch (err) {
           console.warn(`${LOG_PREFIX} Analysis/persistence error:`, err);
         }
@@ -471,6 +507,23 @@ async function bootstrap(): Promise<void> {
     });
     const sidebarMount = mountSidebar(sidebarController);
     if (sidebarMount) cleanupFns.push(() => sidebarMount.unmount());
+
+    // Mount the bottom comparison bar, reflecting the live selection.
+    const comparisonBar = mountComparisonBar({
+      getSelectedListings: () =>
+        Array.from(comparisonSelection)
+          .map((id) => knownListings.get(id))
+          .filter((l): l is AnalyzedListing => l !== undefined),
+      subscribe: (event, handler) => eventBus.on(event, handler),
+      onRemove: (id) => eventBus.emit(MPS_EVENTS.COMPARISON_REMOVED, { listingId: id }),
+      onClear: () => {
+        for (const id of Array.from(comparisonSelection)) {
+          eventBus.emit(MPS_EVENTS.COMPARISON_REMOVED, { listingId: id });
+        }
+      },
+      onCompare: () => eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: true }),
+    });
+    cleanupFns.push(() => comparisonBar.unmount());
 
     // 6. Load persisted settings (may emit SIDEBAR_TOGGLED to reopen sidebar)
     await loadSettings(eventBus);

@@ -11,6 +11,7 @@ import { browser } from '@/platform/browser';
 interface PopupStats {
   listingCount: number;
   filterCount: number;
+  medianPrice: number;
 }
 
 /**
@@ -20,6 +21,7 @@ export function Popup() {
   const [stats, setStats] = useState<PopupStats>({
     listingCount: 0,
     filterCount: 0,
+    medianPrice: 0,
   });
   const [isOnMarketplace, setIsOnMarketplace] = useState(false);
 
@@ -30,15 +32,18 @@ export function Popup() {
       setIsOnMarketplace(url.includes('facebook.com/marketplace'));
     });
 
-    // Get stats from background
-    browser.runtime.sendMessage({ action: 'get-stats' }).then((response: unknown) => {
+    // Get stats from background + the worker-computed price aggregate.
+    Promise.all([
+      browser.runtime.sendMessage({ action: 'get-stats' }).catch(() => null),
+      browser.storage.local.get('mps-price-stats').catch(() => ({})),
+    ]).then(([response, stored]) => {
       const res = response as Record<string, number> | null;
-      if (res) {
-        setStats({
-          listingCount: res.listingCount ?? 0,
-          filterCount: res.filterCount ?? 0,
-        });
-      }
+      const priceStats = (stored as Record<string, { median?: number }>)['mps-price-stats'];
+      setStats({
+        listingCount: res?.listingCount ?? 0,
+        filterCount: res?.filterCount ?? 0,
+        medianPrice: priceStats?.median ?? 0,
+      });
     });
   }, []);
 
@@ -77,6 +82,12 @@ export function Popup() {
                 <div style={styles.statNumber}>{stats.filterCount}</div>
                 <div style={styles.statLabel}>After filters</div>
               </div>
+              {stats.medianPrice > 0 && (
+                <div style={styles.statCard}>
+                  <div style={styles.statNumber}>${stats.medianPrice}</div>
+                  <div style={styles.statLabel}>Median price</div>
+                </div>
+              )}
             </div>
 
             {/* Actions */}
