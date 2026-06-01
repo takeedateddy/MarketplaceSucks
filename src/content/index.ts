@@ -61,6 +61,7 @@ import { createSidebarController, mountSidebar } from "@/content/sidebar-mount";
 import type { AnalyzedListing } from "@/core/models/analyzed-listing";
 import { compareListings } from "@/core/analysis/comparison-engine";
 import type { ComparisonResult } from "@/core/analysis/comparison-engine";
+import { assessOriginality } from "@/core/analysis/image-fingerprint";
 import {
   extractSellerProfile,
   extractDetailEngagement,
@@ -345,18 +346,38 @@ async function bootstrap(): Promise<void> {
           );
           if (dupes.length > 0 && !flags.includes("duplicate")) flags.push("duplicate");
 
+          // Originality from the signals we can derive: uniform/white background,
+          // environmental context (its inverse), multi-angle (multiple images),
+          // and duplicate count. Studio-lighting/recompression aren't detectable.
+          const originality = assessOriginality(
+            {
+              hasWhiteBackground: result.hasUniformBackground,
+              hasStudioLighting: false,
+              hasEnvironmentalContext: !result.hasUniformBackground,
+              isPartOfMultiAngleSet: listing.imageUrls.length > 1,
+              hasHighRecompression: false,
+            },
+            dupes.length,
+          );
+          const originalityScore = originality.score / 100; // store on a 0-1 scale
+
           await persistence.saveImageHash({
             hash: result.hash,
             listingId: listing.id,
             imageUrl: url,
             aiScore: result.aiScore / 100,
-            originalityScore: null,
+            originalityScore,
             flags,
             analyzedAt: new Date().toISOString(),
           });
 
           const current = (knownListings.get(listing.id) as AnalyzedListing | undefined) ?? listing;
-          const updated: AnalyzedListing = { ...current, aiImageScore: result.aiScore, imageFlags: flags };
+          const updated: AnalyzedListing = {
+            ...current,
+            aiImageScore: result.aiScore,
+            imageFlags: flags,
+            originalityScore,
+          };
           knownListings.set(listing.id, updated);
           const card = document.querySelector(`[data-mps-listing-id="${cssEscapeId(listing.id)}"]`);
           if (card) injector.injectBadge(card, buildBadges(updated));
