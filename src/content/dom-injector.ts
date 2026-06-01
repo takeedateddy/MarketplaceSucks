@@ -362,6 +362,41 @@ export class DomInjector {
   }
 
   /**
+   * Inject (or update) a small "Compare" toggle button on a listing card.
+   * Idempotent: re-injecting updates the selected state rather than duplicating.
+   * Click handling is delegated centrally in the content script.
+   *
+   * @param listingElement - The listing card DOM element.
+   * @param listingId - The listing's id (set as a data attribute for delegation).
+   * @param selected - Whether this listing is currently in the comparison set.
+   */
+  injectCompareButton(listingElement: Element, listingId: string, selected: boolean): void {
+    try {
+      let btn = listingElement.querySelector<HTMLButtonElement>(".mps-card-compare-btn");
+      if (!btn) {
+        btn = document.createElement("button");
+        btn.className = "mps-card-compare-btn";
+        btn.type = "button";
+        btn.setAttribute("data-mps-part", "compare-button");
+        if (
+          listingElement instanceof HTMLElement &&
+          getComputedStyle(listingElement).position === "static"
+        ) {
+          listingElement.style.position = "relative";
+        }
+        listingElement.appendChild(btn);
+      }
+      btn.setAttribute("data-mps-listing-id", listingId);
+      btn.setAttribute("data-mps-selected", String(selected));
+      btn.setAttribute("aria-pressed", String(selected));
+      btn.title = selected ? "Remove from comparison" : "Add to comparison";
+      btn.textContent = selected ? "✓ Compare" : "+ Compare";
+    } catch (err) {
+      console.warn("[MPS] Failed to inject compare button:", err);
+    }
+  }
+
+  /**
    * Inject the preview panel used for quick-view of listing details.
    *
    * The panel slides in from the right when a user hovers or clicks a

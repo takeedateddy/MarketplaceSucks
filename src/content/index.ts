@@ -59,6 +59,8 @@ import { analyzeListings } from "@/content/analysis-runner";
 import { buildBadges } from "@/content/badge-builder";
 import { createSidebarController, mountSidebar } from "@/content/sidebar-mount";
 import type { AnalyzedListing } from "@/core/models/analyzed-listing";
+import { compareListings } from "@/core/analysis/comparison-engine";
+import type { ComparisonResult } from "@/core/analysis/comparison-engine";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -86,6 +88,37 @@ function cssEscapeId(id: string): string {
   return id.replace(/["\\\]]/g, "\\$&");
 }
 
+/** Recompute the comparison result from the current selection (needs >= 2). */
+function recomputeComparison(): void {
+  const selected = Array.from(comparisonSelection)
+    .map((id) => knownListings.get(id) as AnalyzedListing | undefined)
+    .filter((l): l is AnalyzedListing => l !== undefined);
+  comparisonResult = selected.length >= 2 ? compareListings(selected) : null;
+}
+
+/** Map of selected listing id -> title, for comparison export/labels. */
+function comparisonTitles(): Record<string, string> {
+  const titles: Record<string, string> = {};
+  for (const id of comparisonSelection) {
+    const listing = knownListings.get(id);
+    if (listing) titles[id] = listing.title;
+  }
+  return titles;
+}
+
+/** Sync every injected compare button's visual state to the selection. */
+function refreshCompareButtons(): void {
+  document.querySelectorAll<HTMLButtonElement>(".mps-card-compare-btn").forEach((btn) => {
+    const id = btn.getAttribute("data-mps-listing-id");
+    if (!id) return;
+    const selected = comparisonSelection.has(id);
+    btn.setAttribute("data-mps-selected", String(selected));
+    btn.setAttribute("aria-pressed", String(selected));
+    btn.title = selected ? "Remove from comparison" : "Add to comparison";
+    btn.textContent = selected ? "✓ Compare" : "+ Compare";
+  });
+}
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -104,6 +137,15 @@ let activeSortDirection: "asc" | "desc" = "asc";
 
 /** Number of listings visible after the most recent filter pass. */
 let lastVisibleCount = 0;
+
+/** Maximum listings that can be compared side by side. */
+const MAX_COMPARISON = 4;
+
+/** Listing ids currently selected for comparison (insertion order). */
+const comparisonSelection = new Set<string>();
+
+/** The most recent comparison result, or null when fewer than 2 are selected. */
+let comparisonResult: ComparisonResult | null = null;
 
 /** Cleanup functions for teardown. */
 const cleanupFns: Array<() => void> = [];
@@ -233,7 +275,10 @@ async function bootstrap(): Promise<void> {
               const card = document.querySelector(
                 `[data-mps-listing-id="${cssEscapeId(a.id)}"]`,
               );
-              if (card) injector.injectBadge(card, buildBadges(a));
+              if (card) {
+                injector.injectBadge(card, buildBadges(a));
+                injector.injectCompareButton(card, a.id, comparisonSelection.has(a.id));
+              }
             } catch (err) {
               console.warn(`${LOG_PREFIX} Badge injection failed for ${a.id}:`, err);
             }
@@ -279,6 +324,43 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    // Comparison selection: card buttons emit COMPARISON_ADDED/REMOVED; these
+    // handlers (registered before the React provider mounts, so they run first)
+    // maintain the selection set and recompute the result the panel reads.
+    eventBus.on<{ listingId: string }>(MPS_EVENTS.COMPARISON_ADDED, ({ listingId }) => {
+      if (!comparisonSelection.has(listingId) && comparisonSelection.size >= MAX_COMPARISON) {
+        console.warn(`${LOG_PREFIX} Comparison limit (${MAX_COMPARISON}) reached`);
+        return;
+      }
+      comparisonSelection.add(listingId);
+      recomputeComparison();
+      refreshCompareButtons();
+    });
+    eventBus.on<{ listingId: string }>(MPS_EVENTS.COMPARISON_REMOVED, ({ listingId }) => {
+      comparisonSelection.delete(listingId);
+      recomputeComparison();
+      refreshCompareButtons();
+    });
+
+    // Delegated click handling for per-card compare buttons.
+    const onCompareClick = (e: MouseEvent): void => {
+      const target = e.target as Element | null;
+      const btn = target?.closest?.(".mps-card-compare-btn");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.getAttribute("data-mps-listing-id");
+      if (!id) return;
+      eventBus.emit(
+        comparisonSelection.has(id)
+          ? MPS_EVENTS.COMPARISON_REMOVED
+          : MPS_EVENTS.COMPARISON_ADDED,
+        { listingId: id },
+      );
+    };
+    document.addEventListener("click", onCompareClick, true);
+    cleanupFns.push(() => document.removeEventListener("click", onCompareClick, true));
+
     // 5. Inject UI elements FIRST (before loading settings, so sidebar exists
     //    when loadSettings emits SIDEBAR_TOGGLED to restore open state)
     injector.injectSidebar();
@@ -301,6 +383,13 @@ async function bootstrap(): Promise<void> {
         applyFiltersAndSort(eventBus, filterEngine, sortEngine, manipulator, injector);
       },
       persistence,
+      getComparison: () => comparisonResult,
+      getComparisonTitles: () => comparisonTitles(),
+      clearComparison: () => {
+        comparisonSelection.clear();
+        recomputeComparison();
+        refreshCompareButtons();
+      },
       subscribe: (event, handler) => eventBus.on(event, handler),
     });
     const sidebarMount = mountSidebar(sidebarController);

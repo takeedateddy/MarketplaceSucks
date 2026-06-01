@@ -27,6 +27,7 @@ import {
   type HistoryEntry,
 } from "@/ui/sidebar/sidebar-context";
 import type { AnalyzedListing } from "@/core/models/analyzed-listing";
+import type { ComparisonResult } from "@/core/analysis/comparison-engine";
 import type { ContentPersistence } from "@/content/persistence";
 import { storageGet, storageSet } from "@/platform/storage";
 
@@ -161,6 +162,12 @@ export interface SidebarMountDeps {
   /** Set the active sort and re-run the pipeline. */
   setSort: (id: string | null, direction: "asc" | "desc") => void;
   persistence: ContentPersistence;
+  /** Current comparison result (null when fewer than 2 are selected). */
+  getComparison: () => ComparisonResult | null;
+  /** Map of selected listing id -> title. */
+  getComparisonTitles: () => Record<string, string>;
+  /** Clear the comparison selection. */
+  clearComparison: () => void;
   /** Subscribe to a pipeline event; returns an unsubscribe function. */
   subscribe: (event: string, handler: () => void) => () => void;
 }
@@ -264,11 +271,9 @@ export function createSidebarController(deps: SidebarMountDeps): SidebarControll
       return records.map(toHistoryEntry);
     },
 
-    // Per-card comparison selection is not wired yet; the panel shows its empty
-    // state until "add to compare" controls exist on cards.
-    getComparison: () => null,
-    getComparisonTitles: () => ({}),
-    clearComparison: () => {},
+    getComparison: () => deps.getComparison(),
+    getComparisonTitles: () => deps.getComparisonTitles(),
+    clearComparison: () => deps.clearComparison(),
 
     subscribe: (event, handler) => deps.subscribe(event, handler),
   };

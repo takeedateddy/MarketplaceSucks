@@ -344,7 +344,6 @@
 }
 
 /* --- Forecast badges --- */
-
 .mps-badge-forecast-fast {
   background: var(--mps-color-forecast-fast, #1a7f37);
   color: #ffffff;
@@ -358,6 +357,28 @@
 .mps-badge-forecast-slow {
   background: var(--mps-color-forecast-slow, #6e7781);
   color: #ffffff;
+}
+
+/* --- Per-card compare toggle button --- */
+
+.mps-card-compare-btn {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 5;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  border: none;
+  border-radius: var(--mps-radius-sm, 4px);
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.mps-card-compare-btn[data-mps-selected="true"] {
+  background: var(--mps-color-primary, #0866ff);
 }
 
 /* ==========================================================================
