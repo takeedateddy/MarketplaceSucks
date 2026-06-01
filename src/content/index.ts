@@ -73,6 +73,7 @@ import { createBuiltinPlugins } from "@/plugins/builtin";
 import { ChromeStorageAdapter } from "@/platform/chrome-storage-adapter";
 import type { ISorter } from "@/core/interfaces/sorter.interface";
 import { DataWorkerClient } from "@/content/data-worker-client";
+import { mountComparisonBar } from "@/content/comparison-bar-mount";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -506,6 +507,23 @@ async function bootstrap(): Promise<void> {
     });
     const sidebarMount = mountSidebar(sidebarController);
     if (sidebarMount) cleanupFns.push(() => sidebarMount.unmount());
+
+    // Mount the bottom comparison bar, reflecting the live selection.
+    const comparisonBar = mountComparisonBar({
+      getSelectedListings: () =>
+        Array.from(comparisonSelection)
+          .map((id) => knownListings.get(id))
+          .filter((l): l is AnalyzedListing => l !== undefined),
+      subscribe: (event, handler) => eventBus.on(event, handler),
+      onRemove: (id) => eventBus.emit(MPS_EVENTS.COMPARISON_REMOVED, { listingId: id }),
+      onClear: () => {
+        for (const id of Array.from(comparisonSelection)) {
+          eventBus.emit(MPS_EVENTS.COMPARISON_REMOVED, { listingId: id });
+        }
+      },
+      onCompare: () => eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: true }),
+    });
+    cleanupFns.push(() => comparisonBar.unmount());
 
     // 6. Load persisted settings (may emit SIDEBAR_TOGGLED to reopen sidebar)
     await loadSettings(eventBus);
