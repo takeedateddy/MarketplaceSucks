@@ -170,6 +170,7 @@ async function checkAlerts(): Promise<void> {
     'mps-last-alert-check',
     'mps-notification-badge-count',
     'mps-notification-urls',
+    'mps-notifications',
   ]);
 
   const data = result as Record<string, unknown>;
@@ -198,6 +199,7 @@ async function checkAlerts(): Promise<void> {
       if (title.includes(queryLower)) {
         notifications.push({
           id: `match-${search.id}-${listing.id}`,
+          type: 'new-match',
           title: `New match: "${search.name}"`,
           body: `${listing.title}${listing.price != null ? ` — $${listing.price}` : ''}`,
           url: listing.url ?? '',
@@ -216,6 +218,7 @@ async function checkAlerts(): Promise<void> {
     if (dropPct >= 5) {
       notifications.push({
         id: `drop-${entry.listingId}-${Date.now()}`,
+        type: 'price-drop',
         title: 'Price drop detected',
         body: `${entry.title}: $${entry.previousPrice} → $${entry.currentPrice} (-${Math.round(dropPct)}%)`,
         url: entry.url ?? '',
@@ -257,10 +260,25 @@ async function checkAlerts(): Promise<void> {
   const urlEntries = Object.entries(mergedUrls);
   const boundedUrls = Object.fromEntries(urlEntries.slice(-200));
 
+  // Append to the notification history the Alerts panel reads (newest kept, capped).
+  const now = Date.now();
+  const existingHistory = (data['mps-notifications'] ?? []) as unknown[];
+  const newHistory = notifications.map((n) => ({
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    body: n.body,
+    url: n.url,
+    timestamp: now,
+    read: false,
+  }));
+  const history = [...newHistory, ...existingHistory].slice(0, 50);
+
   await browser.storage.local.set({
     'mps-last-alert-check': Date.now(),
     'mps-notification-badge-count': badgeCount,
     'mps-notification-urls': boundedUrls,
+    'mps-notifications': history,
     // Price-drop entries are consumed once notified, so clear them to avoid
     // re-notifying the same drop on every subsequent check.
     'mps-price-history': [],
@@ -297,6 +315,7 @@ interface PriceHistoryRecord {
 
 interface AlertNotification {
   id: string;
+  type: 'new-match' | 'price-drop';
   title: string;
   body: string;
   url: string;

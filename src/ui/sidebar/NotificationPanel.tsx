@@ -5,13 +5,17 @@
  * @module ui/sidebar/NotificationPanel
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { Button } from '@/design-system/primitives/Button';
 import { Badge } from '@/design-system/primitives/Badge';
 import { EmptyState } from '@/design-system/primitives/EmptyState';
+import { browser } from '@/platform/browser';
 
-/** A notification entry for display */
+/** chrome.storage key the background worker appends notification history to. */
+const NOTIFICATIONS_KEY = 'mps-notifications';
+
+/** A notification entry for display (also the persisted shape). */
 interface NotificationEntry {
   id: string;
   type: 'new-match' | 'price-drop';
@@ -44,15 +48,42 @@ function formatTimeAgo(timestamp: number): string {
 export function NotificationPanel({ className }: NotificationPanelProps): React.ReactElement {
   const [notifications, setNotifications] = useState<NotificationEntry[]>([]);
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-    );
+  // Load the history the background alert worker persists, newest first.
+  useEffect(() => {
+    let active = true;
+    browser.storage.local
+      .get(NOTIFICATIONS_KEY)
+      .then((stored) => {
+        const list = (stored as Record<string, NotificationEntry[]>)[NOTIFICATIONS_KEY] ?? [];
+        if (active) setNotifications([...list].sort((a, b) => b.timestamp - a.timestamp));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const persist = useCallback((list: NotificationEntry[]) => {
+    browser.storage.local.set({ [NOTIFICATIONS_KEY]: list }).catch(() => {});
+  }, []);
+
+  const markAsRead = useCallback(
+    (id: string) => {
+      setNotifications((prev) => {
+        const next = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+        persist(next);
+        return next;
+      });
+    },
+    [persist],
+  );
 
   const clearAll = useCallback(() => {
     setNotifications([]);
-  }, []);
+    persist([]);
+    // Reset the toolbar badge count too.
+    browser.runtime.sendMessage({ action: 'clear-badge' }).catch(() => {});
+  }, [persist]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 

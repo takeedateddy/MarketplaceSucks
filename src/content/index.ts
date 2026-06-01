@@ -74,6 +74,7 @@ import { ChromeStorageAdapter } from "@/platform/chrome-storage-adapter";
 import type { ISorter } from "@/core/interfaces/sorter.interface";
 import { DataWorkerClient } from "@/content/data-worker-client";
 import { mountComparisonBar } from "@/content/comparison-bar-mount";
+import { showOnboardingIfNeeded } from "@/content/onboarding";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -474,6 +475,29 @@ async function bootstrap(): Promise<void> {
     document.addEventListener("click", onCompareClick, true);
     cleanupFns.push(() => document.removeEventListener("click", onCompareClick, true));
 
+    // Clicking an analysis badge opens the matching sidebar panel.
+    const BADGE_PANEL: Record<string, string> = {
+      trust: "trust",
+      price: "analytics",
+      heat: "heat",
+      forecast: "forecast",
+      image: "images",
+    };
+    const onBadgeClick = (e: MouseEvent): void => {
+      const target = e.target as Element | null;
+      const badge = target?.closest?.(".mps-badge");
+      if (!badge) return;
+      const type = badge.getAttribute("data-mps-badge-type");
+      const panel = type ? BADGE_PANEL[type] : undefined;
+      if (!panel) return;
+      e.preventDefault();
+      e.stopPropagation();
+      eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: true });
+      document.dispatchEvent(new CustomEvent("mps:open-panel", { detail: { panel } }));
+    };
+    document.addEventListener("click", onBadgeClick, true);
+    cleanupFns.push(() => document.removeEventListener("click", onBadgeClick, true));
+
     // 5. Inject UI elements FIRST (before loading settings, so sidebar exists
     //    when loadSettings emits SIDEBAR_TOGGLED to restore open state)
     injector.injectSidebar();
@@ -524,6 +548,13 @@ async function bootstrap(): Promise<void> {
       onCompare: () => eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: true }),
     });
     cleanupFns.push(() => comparisonBar.unmount());
+
+    // Show the first-run onboarding walkthrough (no-op after the first install).
+    showOnboardingIfNeeded()
+      .then((dismiss) => {
+        if (dismiss) cleanupFns.push(dismiss);
+      })
+      .catch(() => {});
 
     // 6. Load persisted settings (may emit SIDEBAR_TOGGLED to reopen sidebar)
     await loadSettings(eventBus);

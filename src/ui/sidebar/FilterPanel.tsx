@@ -197,6 +197,7 @@ export const FilterPanel: React.FC<{ className?: string }> = ({ className }) => 
             type="text"
             style={inputStyle}
             placeholder="e.g. iPhone, vintage"
+            data-mps-filter-input
             value={filters.keywords}
             onChange={(e) => updateField('keywords', e.target.value)}
           />
