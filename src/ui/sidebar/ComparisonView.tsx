@@ -9,8 +9,8 @@ import React, { useState, useCallback } from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { ComparisonRow } from '@/design-system/composites/ComparisonRow';
 import { Button } from '@/design-system/primitives/Button';
-import type { ComparisonResult } from '@/core/analysis/comparison-engine';
 import { formatAsMarkdown, formatAsText } from '@/core/utils/comparison-export';
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 
 /** Props for the {@link ComparisonView} component. */
 export interface ComparisonViewProps {
@@ -29,9 +29,7 @@ export interface ComparisonViewProps {
  * ```
  */
 export const ComparisonView: React.FC<ComparisonViewProps> = ({ className }) => {
-  // In production this would come from a comparison store/context
-  const [comparison] = useState<ComparisonResult | null>(null);
-  const [listingTitles] = useState<Record<string, string>>({});
+  const { comparison, comparisonTitles: listingTitles, clearComparison } = useSidebarData();
   const [copied, setCopied] = useState(false);
 
   const copyAsMarkdown = useCallback(() => {
@@ -127,7 +125,7 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({ className }) => 
       title="Compare"
       className={className}
       actions={
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" onClick={clearComparison}>
           Clear
         </Button>
       }

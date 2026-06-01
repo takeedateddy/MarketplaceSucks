@@ -5,22 +5,11 @@
  * @module ui/sidebar/PriceAnalytics
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { ConfidenceBar } from '@/design-system/composites/ConfidenceBar';
 import { PRICE_RATING_INFO, type PriceRatingTier } from '@/core/analysis/price-rater';
-
-/** Aggregated price statistics. */
-interface PriceStats {
-  count: number;
-  min: number;
-  max: number;
-  mean: number;
-  median: number;
-}
-
-/** Distribution count per price rating tier. */
-type RatingDistribution = Record<PriceRatingTier, number>;
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 
 /** Props for the {@link PriceAnalytics} component. */
 export interface PriceAnalyticsProps {
@@ -50,18 +39,11 @@ const TIER_ORDER: PriceRatingTier[] = [
  * ```
  */
 export const PriceAnalytics: React.FC<PriceAnalyticsProps> = ({ className }) => {
-  // In production these would come from a context/store
-  const [stats] = useState<PriceStats>({ count: 0, min: 0, max: 0, mean: 0, median: 0 });
-  const [distribution] = useState<RatingDistribution>({
-    steal: 0,
-    'great-deal': 0,
-    'good-price': 0,
-    'fair-price': 0,
-    'above-market': 0,
-    high: 0,
-    overpriced: 0,
-  });
-  const [confidence] = useState<'high' | 'medium' | 'low' | 'insufficient'>('insufficient');
+  const {
+    priceStats: stats,
+    ratingDistribution: distribution,
+    priceConfidence: confidence,
+  } = useSidebarData();
 
   const statGridStyle: React.CSSProperties = {
     display: 'grid',

@@ -6,23 +6,11 @@
  * @module ui/sidebar/HeatMap
  */
 
-import React, { useState } from 'react';
+import React from 'react';
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { HeatIndicator } from '@/design-system/composites/HeatIndicator';
-import { HEAT_TIER_INFO, type HeatTier } from '@/core/analysis/heat-tracker';
-
-/** A listing's heat data for display. */
-interface HeatEntry {
-  listingId: string;
-  title: string;
-  price: number | null;
-  imageUrl: string | null;
-  score: number;
-  tier: HeatTier;
-  saves: number | null;
-  comments: number | null;
-  views: number | null;
-}
+import { HEAT_TIER_INFO } from '@/core/analysis/heat-tracker';
 
 /** Props for the {@link HeatMap} component. */
 export interface HeatMapProps {
@@ -40,8 +28,7 @@ export interface HeatMapProps {
  * ```
  */
 export const HeatMap: React.FC<HeatMapProps> = ({ className }) => {
-  // In production this would come from a context/store
-  const [entries] = useState<HeatEntry[]>([]);
+  const { heatEntries: entries } = useSidebarData();
 
   const emptyStyle: React.CSSProperties = {
     textAlign: 'center',

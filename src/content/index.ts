@@ -26,7 +26,7 @@
 
 import "./styles.css";
 
-import { storageGet, onStorageChanged } from "@/platform/storage";
+import { storageGet, storageSet, onStorageChanged } from "@/platform/storage";
 import { browser } from "@/platform/browser";
 import { detectFacebookTheme, observeThemeChanges } from "@/design-system/theme/theme-detector";
 import { injectCSSVariables } from "@/design-system/theme/css-variables";
@@ -57,6 +57,8 @@ import { DetailPageEnhancer } from "@/content/detail-page-enhancer";
 import { ContentPersistence } from "@/content/persistence";
 import { analyzeListings } from "@/content/analysis-runner";
 import { buildBadges } from "@/content/badge-builder";
+import { createSidebarController, mountSidebar } from "@/content/sidebar-mount";
+import type { AnalyzedListing } from "@/core/models/analyzed-listing";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -99,6 +101,9 @@ let activeSortId: string | null = null;
 
 /** Current sort direction. */
 let activeSortDirection: "asc" | "desc" = "asc";
+
+/** Number of listings visible after the most recent filter pass. */
+let lastVisibleCount = 0;
 
 /** Cleanup functions for teardown. */
 const cleanupFns: Array<() => void> = [];
@@ -267,6 +272,29 @@ async function bootstrap(): Promise<void> {
     // 5. Inject UI elements FIRST (before loading settings, so sidebar exists
     //    when loadSettings emits SIDEBAR_TOGGLED to restore open state)
     injector.injectSidebar();
+
+    // 5b. Mount the React sidebar into the injected host, replacing the
+    //     placeholder vanilla controls, and bridge it to the live pipeline.
+    const sidebarController = createSidebarController({
+      getListings: () => Array.from(knownListings.values()) as AnalyzedListing[],
+      getVisibleCount: () => lastVisibleCount,
+      setActiveFilters: (configs) => {
+        activeFilters = configs;
+        storageSet(STORAGE_KEY_FILTERS, Object.fromEntries(configs)).catch(() => {});
+        applyFiltersAndSort(eventBus, filterEngine, sortEngine, manipulator, injector);
+      },
+      getSort: () => ({ id: activeSortId, direction: activeSortDirection }),
+      setSort: (id, direction) => {
+        activeSortId = id;
+        activeSortDirection = direction;
+        storageSet(STORAGE_KEY_SORT, id ? { id, direction } : null).catch(() => {});
+        applyFiltersAndSort(eventBus, filterEngine, sortEngine, manipulator, injector);
+      },
+      persistence,
+      subscribe: (event, handler) => eventBus.on(event, handler),
+    });
+    const sidebarMount = mountSidebar(sidebarController);
+    if (sidebarMount) cleanupFns.push(() => sidebarMount.unmount());
 
     // 6. Load persisted settings (may emit SIDEBAR_TOGGLED to reopen sidebar)
     await loadSettings(eventBus);
@@ -475,6 +503,7 @@ function applyFiltersAndSort(
 
     manipulator.showAllListings();
     manipulator.hideListings(hiddenIds);
+    lastVisibleCount = filterResult.listings.length;
 
     // Update stats to reflect filtered results
     const hasActiveFilters = activeFilters.size > 0;

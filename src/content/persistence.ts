@@ -349,6 +349,16 @@ export class ContentPersistence implements AnalysisDataSource {
     }
   }
 
+  /** Return the most recently observed listing records (for the history panel). */
+  async getRecentListings(limit: number): Promise<ListingRecord[]> {
+    if (!this.ready || !this.listings) return [];
+    try {
+      return await this.listings.getRecent(limit);
+    } catch {
+      return [];
+    }
+  }
+
   /** @inheritdoc */
   async getPreviousEngagement(
     listingId: string,

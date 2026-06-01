@@ -6,20 +6,10 @@
  * @module ui/sidebar/SavedSearches
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { Button } from '@/design-system/primitives/Button';
-
-/** Local representation of a saved search for the UI. */
-interface SavedSearchItem {
-  id: string;
-  name: string;
-  query: string;
-  isPinned: boolean;
-  createdAt: number;
-  lastRunAt: number | null;
-  resultCount: number | null;
-}
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 
 /** Props for the {@link SavedSearches} component. */
 export interface SavedSearchesProps {
@@ -37,14 +27,45 @@ export interface SavedSearchesProps {
  * ```
  */
 export const SavedSearches: React.FC<SavedSearchesProps> = ({ className }) => {
-  const [searches] = useState<SavedSearchItem[]>([]);
+  const {
+    savedSearches: searches,
+    addSavedSearch,
+    deleteSavedSearch,
+    togglePinSavedSearch,
+    runSavedSearch,
+    exportSavedSearches,
+    importSavedSearches,
+  } = useSidebarData();
   const [newName, setNewName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = useCallback(() => {
     if (!newName.trim()) return;
-    // In production: dispatch save action via event bus / store
+    addSavedSearch(newName.trim());
     setNewName('');
-  }, [newName]);
+  }, [newName, addSavedSearch]);
+
+  const handleExport = useCallback(async () => {
+    const json = await exportSavedSearches();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'marketplacesucks-saved-searches.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [exportSavedSearches]);
+
+  const handleImportFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      importSavedSearches(text);
+      e.target.value = '';
+    },
+    [importSavedSearches],
+  );
 
   const inputStyle: React.CSSProperties = {
     flex: 1,
@@ -153,9 +174,11 @@ export const SavedSearches: React.FC<SavedSearchesProps> = ({ className }) => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 'var(--mps-spacing-xxs)' }}>
-                <Button variant="ghost" size="sm">Load</Button>
-                <Button variant="ghost" size="sm">{search.isPinned ? 'Unpin' : 'Pin'}</Button>
-                <Button variant="danger" size="sm">Delete</Button>
+                <Button variant="ghost" size="sm" onClick={() => runSavedSearch(search)}>Load</Button>
+                <Button variant="ghost" size="sm" onClick={() => togglePinSavedSearch(search.id)}>
+                  {search.isPinned ? 'Unpin' : 'Pin'}
+                </Button>
+                <Button variant="danger" size="sm" onClick={() => deleteSavedSearch(search.id)}>Delete</Button>
               </div>
             </div>
           ))}
@@ -164,8 +187,19 @@ export const SavedSearches: React.FC<SavedSearchesProps> = ({ className }) => {
 
       {/* Export / Import */}
       <div style={footerStyle}>
-        <Button variant="ghost" size="sm">Export as JSON</Button>
-        <Button variant="ghost" size="sm">Import</Button>
+        <Button variant="ghost" size="sm" onClick={handleExport} disabled={searches.length === 0}>
+          Export as JSON
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+          Import
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          style={{ display: 'none' }}
+          onChange={handleImportFile}
+        />
       </div>
     </PanelLayout>
   );

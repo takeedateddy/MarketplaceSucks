@@ -78,11 +78,13 @@ export interface SidebarProps {
  * <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
  * ```
  */
-export const Sidebar: React.FC<SidebarProps> = ({
-  isOpen,
-  onClose,
+/**
+ * The tab bar + active panel, without the {@link SidebarLayout} shell. Used
+ * when embedding inside the content script's injected sidebar host, which
+ * already provides the header/collapse chrome.
+ */
+export const SidebarTabs: React.FC<{ defaultTab?: SidebarTabId }> = ({
   defaultTab = 'filters',
-  className,
 }) => {
   const [activeTab, setActiveTab] = useState<SidebarTabId>(defaultTab);
 
@@ -146,7 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <SidebarLayout isOpen={isOpen} onClose={onClose} className={className}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <nav style={tabBarStyle} role="tablist" aria-label="Sidebar tabs">
         {TABS.map((tab) => (
           <button
@@ -170,6 +172,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {panelMap[activeTab]}
       </div>
-    </SidebarLayout>
+    </div>
   );
 };
+
+/**
+ * Top-level sidebar component that renders the tab bar and active panel inside
+ * the {@link SidebarLayout} shell. Retained for standalone/full-shell usage.
+ */
+export const Sidebar: React.FC<SidebarProps> = ({
+  isOpen,
+  onClose,
+  defaultTab = 'filters',
+  className,
+}) => (
+  <SidebarLayout isOpen={isOpen} onClose={onClose} className={className}>
+    <SidebarTabs defaultTab={defaultTab} />
+  </SidebarLayout>
+);
