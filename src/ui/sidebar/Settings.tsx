@@ -5,9 +5,10 @@
  * @module ui/sidebar/Settings
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { Button } from '@/design-system/primitives/Button';
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 
 /** All user-configurable settings. */
 interface SettingsState {
@@ -122,18 +123,18 @@ const toggleKnobStyle = (checked: boolean): React.CSSProperties => ({
  * ```
  */
 export const Settings: React.FC<SettingsProps> = ({ className }) => {
-  const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
+  const { settings, saveSettings } = useSidebarData();
 
   const update = useCallback(
     <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
-      setSettings((prev) => ({ ...prev, [key]: value }));
+      saveSettings({ ...settings, [key]: value });
     },
-    [],
+    [settings, saveSettings],
   );
 
   const handleReset = useCallback(() => {
-    setSettings(DEFAULT_SETTINGS);
-  }, []);
+    saveSettings(DEFAULT_SETTINGS);
+  }, [saveSettings]);
 
   /** Toggle switch sub-component. */
   const Toggle: React.FC<{

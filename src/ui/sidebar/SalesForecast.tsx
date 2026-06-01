@@ -5,7 +5,8 @@
  * @module ui/sidebar/SalesForecast
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { ForecastIndicator } from '@/design-system/composites/ForecastIndicator';
 // ConfidenceBar available for future per-listing confidence display
@@ -38,8 +39,7 @@ export interface SalesForecastProps {
  * ```
  */
 export const SalesForecast: React.FC<SalesForecastProps> = ({ className }) => {
-  // In production this would come from a context/store
-  const [entries] = useState<ForecastEntry[]>([]);
+  const { forecastEntries: entries } = useSidebarData();
 
   const actFast = useMemo(
     () => entries.filter((e) => e.urgency === 'act-fast').sort((a, b) => a.estimatedDays - b.estimatedDays),

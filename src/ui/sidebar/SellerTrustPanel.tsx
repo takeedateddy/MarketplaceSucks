@@ -5,11 +5,12 @@
  * @module ui/sidebar/SellerTrustPanel
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { TrustBadge } from '@/design-system/composites/TrustBadge';
 import { ConfidenceBar } from '@/design-system/composites/ConfidenceBar';
 import { TRUST_FACTOR_MAX_SCORES, type TrustScoreBreakdown } from '@/core/analysis/seller-trust';
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 
 /** Displayable trust data for the panel. */
 interface TrustDisplayData {
@@ -47,8 +48,9 @@ const FACTOR_LABELS: Record<keyof TrustScoreBreakdown, string> = {
  * ```
  */
 export const SellerTrustPanel: React.FC<SellerTrustPanelProps> = ({ className }) => {
-  // In production this would come from a context/store; placeholder for now
-  const [trustData] = useState<TrustDisplayData | null>(null);
+  // Show the trust details of the first scored seller currently in view.
+  const { trustList } = useSidebarData();
+  const trustData: TrustDisplayData | null = trustList[0] ?? null;
 
   const containerStyle: React.CSSProperties = {
     padding: 'var(--mps-spacing-md)',

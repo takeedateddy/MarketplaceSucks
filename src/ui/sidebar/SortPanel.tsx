@@ -5,14 +5,38 @@
  * @module ui/sidebar/SortPanel
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 
 /** A single sort option definition. */
 interface SortOption {
   id: string;
   label: string;
   description: string;
+}
+
+/** Maps a UI sort option to the sorter-registry id + direction it drives. */
+const SORT_MAP: Record<string, { sorterId: string; direction: 'asc' | 'desc' }> = {
+  'price-asc': { sorterId: 'price', direction: 'asc' },
+  'price-desc': { sorterId: 'price', direction: 'desc' },
+  'date-desc': { sorterId: 'date', direction: 'desc' },
+  'date-asc': { sorterId: 'date', direction: 'asc' },
+  'distance-asc': { sorterId: 'distance', direction: 'asc' },
+  'alpha-asc': { sorterId: 'alphabetical', direction: 'asc' },
+  'trust-desc': { sorterId: 'seller-trust', direction: 'desc' },
+  'price-rating': { sorterId: 'price-rating', direction: 'asc' },
+  'heat-desc': { sorterId: 'heat', direction: 'desc' },
+  'forecast-asc': { sorterId: 'selling-speed', direction: 'asc' },
+};
+
+/** Resolve the current sorter id+direction back to its UI option id. */
+function uiIdFromSort(sort: { id: string | null; direction: 'asc' | 'desc' }): string {
+  if (!sort.id) return '';
+  const match = Object.entries(SORT_MAP).find(
+    ([, m]) => m.sorterId === sort.id && m.direction === sort.direction,
+  );
+  return match ? match[0] : '';
 }
 
 /** Available sort options in display order. */
@@ -45,11 +69,16 @@ export interface SortPanelProps {
  * ```
  */
 export const SortPanel: React.FC<SortPanelProps> = ({ className }) => {
-  const [selectedSort, setSelectedSort] = useState<string>('date-desc');
+  const { sort, setSort } = useSidebarData();
+  const selectedSort = uiIdFromSort(sort);
 
-  const handleSelect = useCallback((id: string) => {
-    setSelectedSort(id);
-  }, []);
+  const handleSelect = useCallback(
+    (id: string) => {
+      const mapping = SORT_MAP[id];
+      if (mapping) setSort(mapping.sorterId, mapping.direction);
+    },
+    [setSort],
+  );
 
   const optionStyle = (isSelected: boolean): React.CSSProperties => ({
     display: 'flex',

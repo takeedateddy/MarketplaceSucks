@@ -6,28 +6,13 @@
  * @module ui/sidebar/ImageAnalysisPanel
  */
 
-import React, { useState } from 'react';
+import React from 'react';
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { ImageFlagBadge } from '@/design-system/composites/ImageFlagBadge';
 import { ConfidenceBar } from '@/design-system/composites/ConfidenceBar';
 import { Badge } from '@/design-system/primitives/Badge';
 
-/** A flagged image entry for display. */
-interface FlaggedImage {
-  listingId: string;
-  listingTitle: string;
-  imageUrl: string;
-  classification: string;
-  aiScore: number;
-  confidence: 'high' | 'medium' | 'low';
-  signalCount: number;
-  /** Whether ML model was used for this analysis */
-  mlModelUsed?: boolean;
-  /** ML model confidence score (0-1), if model was used */
-  mlScore?: number;
-  /** Inference time in milliseconds */
-  inferenceTimeMs?: number;
-}
 
 /** Props for the {@link ImageAnalysisPanel} component. */
 export interface ImageAnalysisPanelProps {
@@ -46,8 +31,7 @@ export interface ImageAnalysisPanelProps {
  * ```
  */
 export const ImageAnalysisPanel: React.FC<ImageAnalysisPanelProps> = ({ className }) => {
-  // In production this would come from a context/store
-  const [flaggedImages] = useState<FlaggedImage[]>([]);
+  const { flaggedImages } = useSidebarData();
 
   const emptyStyle: React.CSSProperties = {
     textAlign: 'center',

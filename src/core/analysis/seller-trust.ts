@@ -202,7 +202,11 @@ export function calculateTrustScore(profile: Partial<SellerProfile>): TrustScore
     : null;
   const ratingValue = profile.rating?.overall ?? null;
   const ratingCount = profile.rating?.totalReviews ?? null;
-  const responseRateStr = profile.responseRate != null ? String(profile.responseRate) : null;
+  // Prefer the qualitative description Facebook actually shows (what the
+  // scorer phrase-matches on); fall back to stringifying a numeric rate.
+  const responseRateStr =
+    profile.responseDescription ??
+    (profile.responseRate != null ? String(profile.responseRate) : null);
 
   const factors: { name: string; result: { score: number; hasData: boolean } }[] = [
     { name: 'accountAge', result: scoreAccountAge(accountAgeMonths) },

@@ -5,20 +5,11 @@
  * @module ui/sidebar/ListingHistory
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
+import { useSidebarData } from '@/ui/sidebar/sidebar-context';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { Button } from '@/design-system/primitives/Button';
 
-/** A history entry for display. */
-interface HistoryEntry {
-  listingId: string;
-  title: string;
-  price: number | null;
-  imageUrl: string | null;
-  firstSeen: number;
-  lastSeen: number;
-  viewCount: number;
-}
 
 /** Props for the {@link ListingHistory} component. */
 export interface ListingHistoryProps {
@@ -37,8 +28,7 @@ export interface ListingHistoryProps {
  * ```
  */
 export const ListingHistory: React.FC<ListingHistoryProps> = ({ className }) => {
-  // In production this would come from a context/store
-  const [entries] = useState<HistoryEntry[]>([]);
+  const { historyEntries: entries } = useSidebarData();
 
   const handleMarkAllSeen = useCallback(() => {
     // In production: dispatch action

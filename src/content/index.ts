@@ -26,7 +26,7 @@
 
 import "./styles.css";
 
-import { storageGet, onStorageChanged } from "@/platform/storage";
+import { storageGet, storageSet, onStorageChanged } from "@/platform/storage";
 import { browser } from "@/platform/browser";
 import { detectFacebookTheme, observeThemeChanges } from "@/design-system/theme/theme-detector";
 import { injectCSSVariables } from "@/design-system/theme/css-variables";
@@ -40,6 +40,9 @@ import { PriceFilter } from "@/core/filters/price-filter";
 import { ConditionFilter } from "@/core/filters/condition-filter";
 import { DistanceFilter } from "@/core/filters/distance-filter";
 import { DateFilter } from "@/core/filters/date-filter";
+import { SellerTrustFilter } from "@/core/filters/seller-trust-filter";
+import { PriceRatingFilter } from "@/core/filters/price-rating-filter";
+import { ImageFlagFilter } from "@/core/filters/image-flag-filter";
 import { sortRegistry } from "@/core/sorters/sort-registry";
 import { ALL_SORTERS } from "@/core/sorters/sorters";
 import { SortEngine } from "@/core/sorters/sort-engine";
@@ -51,6 +54,19 @@ import { DomInjector } from "@/content/dom-injector";
 import { DomManipulator } from "@/content/dom-manipulator";
 import { runSelectorHealthCheck } from "@/content/selector-health-checker";
 import { DetailPageEnhancer } from "@/content/detail-page-enhancer";
+import { ContentPersistence } from "@/content/persistence";
+import { analyzeListings } from "@/content/analysis-runner";
+import { buildBadges } from "@/content/badge-builder";
+import { createSidebarController, mountSidebar } from "@/content/sidebar-mount";
+import type { AnalyzedListing } from "@/core/models/analyzed-listing";
+import { compareListings } from "@/core/analysis/comparison-engine";
+import type { ComparisonResult } from "@/core/analysis/comparison-engine";
+import {
+  extractSellerProfile,
+  extractDetailEngagement,
+  buildSellerRecord,
+} from "@/content/detail-page-parser";
+import type { ImageAnalysisResult } from "@/background/image-analysis";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -68,6 +84,47 @@ const STORAGE_KEY_SIDEBAR = "mps:sidebarOpen";
 /** Console log prefix. */
 const LOG_PREFIX = "[MPS]";
 
+/**
+ * Escape a listing id for safe use inside a CSS attribute selector.
+ * Uses the native `CSS.escape` when available, with a conservative fallback.
+ */
+function cssEscapeId(id: string): string {
+  const cssApi = (globalThis as { CSS?: { escape?: (s: string) => string } }).CSS;
+  if (cssApi?.escape) return cssApi.escape(id);
+  return id.replace(/["\\\]]/g, "\\$&");
+}
+
+/** Recompute the comparison result from the current selection (needs >= 2). */
+function recomputeComparison(): void {
+  const selected = Array.from(comparisonSelection)
+    .map((id) => knownListings.get(id) as AnalyzedListing | undefined)
+    .filter((l): l is AnalyzedListing => l !== undefined);
+  comparisonResult = selected.length >= 2 ? compareListings(selected) : null;
+}
+
+/** Map of selected listing id -> title, for comparison export/labels. */
+function comparisonTitles(): Record<string, string> {
+  const titles: Record<string, string> = {};
+  for (const id of comparisonSelection) {
+    const listing = knownListings.get(id);
+    if (listing) titles[id] = listing.title;
+  }
+  return titles;
+}
+
+/** Sync every injected compare button's visual state to the selection. */
+function refreshCompareButtons(): void {
+  document.querySelectorAll<HTMLButtonElement>(".mps-card-compare-btn").forEach((btn) => {
+    const id = btn.getAttribute("data-mps-listing-id");
+    if (!id) return;
+    const selected = comparisonSelection.has(id);
+    btn.setAttribute("data-mps-selected", String(selected));
+    btn.setAttribute("aria-pressed", String(selected));
+    btn.title = selected ? "Remove from comparison" : "Add to comparison";
+    btn.textContent = selected ? "✓ Compare" : "+ Compare";
+  });
+}
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -83,6 +140,18 @@ let activeSortId: string | null = null;
 
 /** Current sort direction. */
 let activeSortDirection: "asc" | "desc" = "asc";
+
+/** Number of listings visible after the most recent filter pass. */
+let lastVisibleCount = 0;
+
+/** Maximum listings that can be compared side by side. */
+const MAX_COMPARISON = 4;
+
+/** Listing ids currently selected for comparison (insertion order). */
+const comparisonSelection = new Set<string>();
+
+/** The most recent comparison result, or null when fewer than 2 are selected. */
+let comparisonResult: ComparisonResult | null = null;
 
 /** Cleanup functions for teardown. */
 const cleanupFns: Array<() => void> = [];
@@ -119,6 +188,9 @@ async function bootstrap(): Promise<void> {
     filterRegistry.register(new ConditionFilter() as unknown as IFilter);
     filterRegistry.register(new DistanceFilter() as unknown as IFilter);
     filterRegistry.register(new DateFilter() as unknown as IFilter);
+    filterRegistry.register(new SellerTrustFilter() as unknown as IFilter);
+    filterRegistry.register(new PriceRatingFilter() as unknown as IFilter);
+    filterRegistry.register(new ImageFlagFilter() as unknown as IFilter);
     console.log(`${LOG_PREFIX} Registered ${filterRegistry.size} filters`);
 
     // Register all sorters
@@ -136,7 +208,36 @@ async function bootstrap(): Promise<void> {
     const parser = new ListingParser();
     const injector = new DomInjector();
     const manipulator = new DomManipulator();
-    const detailEnhancer = new DetailPageEnhancer();
+
+    // Persistence layer (IndexedDB). Best-effort: if it fails to open, the
+    // pipeline still runs, just without comparables/history.
+    const persistence = new ContentPersistence();
+    await persistence.init();
+    cleanupFns.push(() => persistence.close());
+
+    // Detail-page enhancer: when a listing detail page loads, parse the seller
+    // profile + engagement (only available there), score and persist them so
+    // grid listings from the same seller pick up trust/heat.
+    const detailEnhancer = new DetailPageEnhancer((listingId) => {
+      try {
+        const parsed = extractSellerProfile(document);
+        if (parsed) persistence.saveSeller(buildSellerRecord(parsed)).catch(() => {});
+        const engagement = extractDetailEngagement(document);
+        if (engagement) persistence.saveDetailEngagement(listingId, engagement).catch(() => {});
+      } catch (err) {
+        console.warn(`${LOG_PREFIX} Detail-page parse failed:`, err);
+      }
+    });
+
+    // Enforce data-retention settings so IndexedDB stays bounded.
+    storageGet<{ historyRetentionDays?: number; priceDataRetentionDays?: number }>(
+      "mps:settings",
+      {},
+    )
+      .then((s) =>
+        persistence.cleanup(s.historyRetentionDays ?? 30, s.priceDataRetentionDays ?? 90),
+      )
+      .catch(() => {});
 
     // 4. Wire the event flow
     //    Observer detects new DOM nodes -> Parser extracts Listing data ->
@@ -177,10 +278,98 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    // When listings are parsed, apply filters and sorts
+    // Optional image analysis: when enabled in settings, ask the background
+    // worker (which can fetch+decode cross-origin fbcdn images without canvas
+    // tainting) to score each listing's first image, then persist + badge it.
+    const requestedImageUrls = new Set<string>();
+    const maybeScanImages = async (listings: AnalyzedListing[]): Promise<void> => {
+      let settings: { autoScanImages?: boolean };
+      try {
+        settings = await storageGet<{ autoScanImages?: boolean }>("mps:settings", {});
+      } catch {
+        return;
+      }
+      if (!settings.autoScanImages) return;
+
+      let changed = false;
+      for (const listing of listings) {
+        const url = listing.imageUrls[0];
+        if (!url || requestedImageUrls.has(url)) continue;
+        requestedImageUrls.add(url);
+        try {
+          const result = (await browser.runtime.sendMessage({
+            action: "analyze-image",
+            payload: { url },
+          })) as ImageAnalysisResult | null;
+          if (!result) continue;
+
+          const flags = [...result.flags];
+          const dupes = (await persistence.findImageDuplicates(result.hash)).filter(
+            (d) => d.listingId !== listing.id,
+          );
+          if (dupes.length > 0 && !flags.includes("duplicate")) flags.push("duplicate");
+
+          await persistence.saveImageHash({
+            hash: result.hash,
+            listingId: listing.id,
+            imageUrl: url,
+            aiScore: result.aiScore / 100,
+            originalityScore: null,
+            flags,
+            analyzedAt: new Date().toISOString(),
+          });
+
+          const current = (knownListings.get(listing.id) as AnalyzedListing | undefined) ?? listing;
+          const updated: AnalyzedListing = { ...current, aiImageScore: result.aiScore, imageFlags: flags };
+          knownListings.set(listing.id, updated);
+          const card = document.querySelector(`[data-mps-listing-id="${cssEscapeId(listing.id)}"]`);
+          if (card) injector.injectBadge(card, buildBadges(updated));
+          changed = true;
+        } catch {
+          // best effort
+        }
+      }
+      if (changed) {
+        eventBus.emit(MPS_EVENTS.ANALYSIS_COMPLETE, { count: 0, total: knownListings.size });
+      }
+    };
+
+    // When listings are parsed: persist them, run analysis (price rating, heat,
+    // forecast), fold the enriched listings back into `knownListings`, then
+    // apply filters/sorts. Newly parsed listings are visible by default, so
+    // there is no blank period while the async IndexedDB work completes.
     eventBus.on<{ listings: Listing[]; total: number }>(
       MPS_EVENTS.LISTINGS_PARSED,
-      () => {
+      async ({ listings }) => {
+        try {
+          await persistence.saveListings(listings);
+          const analyzed = await analyzeListings(listings, persistence);
+          for (const a of analyzed) {
+            knownListings.set(a.id, a);
+            try {
+              const card = document.querySelector(
+                `[data-mps-listing-id="${cssEscapeId(a.id)}"]`,
+              );
+              if (card) {
+                injector.injectBadge(card, buildBadges(a));
+                injector.injectCompareButton(card, a.id, comparisonSelection.has(a.id));
+              }
+            } catch (err) {
+              console.warn(`${LOG_PREFIX} Badge injection failed for ${a.id}:`, err);
+            }
+          }
+          // Record engagement snapshots *after* analysis so heat velocity
+          // compares against the previous observation, not the current one.
+          await persistence.saveEngagement(listings);
+          eventBus.emit(MPS_EVENTS.ANALYSIS_COMPLETE, {
+            count: analyzed.length,
+            total: knownListings.size,
+          });
+          // Fire-and-forget image analysis (no-op unless enabled in settings).
+          void maybeScanImages(analyzed);
+        } catch (err) {
+          console.warn(`${LOG_PREFIX} Analysis/persistence error:`, err);
+        }
         applyFiltersAndSort(eventBus, filterEngine, sortEngine, manipulator, injector);
       },
     );
@@ -212,9 +401,76 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    // Comparison selection: card buttons emit COMPARISON_ADDED/REMOVED; these
+    // handlers (registered before the React provider mounts, so they run first)
+    // maintain the selection set and recompute the result the panel reads.
+    eventBus.on<{ listingId: string }>(MPS_EVENTS.COMPARISON_ADDED, ({ listingId }) => {
+      if (!comparisonSelection.has(listingId) && comparisonSelection.size >= MAX_COMPARISON) {
+        console.warn(`${LOG_PREFIX} Comparison limit (${MAX_COMPARISON}) reached`);
+        return;
+      }
+      comparisonSelection.add(listingId);
+      recomputeComparison();
+      refreshCompareButtons();
+    });
+    eventBus.on<{ listingId: string }>(MPS_EVENTS.COMPARISON_REMOVED, ({ listingId }) => {
+      comparisonSelection.delete(listingId);
+      recomputeComparison();
+      refreshCompareButtons();
+    });
+
+    // Delegated click handling for per-card compare buttons.
+    const onCompareClick = (e: MouseEvent): void => {
+      const target = e.target as Element | null;
+      const btn = target?.closest?.(".mps-card-compare-btn");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.getAttribute("data-mps-listing-id");
+      if (!id) return;
+      eventBus.emit(
+        comparisonSelection.has(id)
+          ? MPS_EVENTS.COMPARISON_REMOVED
+          : MPS_EVENTS.COMPARISON_ADDED,
+        { listingId: id },
+      );
+    };
+    document.addEventListener("click", onCompareClick, true);
+    cleanupFns.push(() => document.removeEventListener("click", onCompareClick, true));
+
     // 5. Inject UI elements FIRST (before loading settings, so sidebar exists
     //    when loadSettings emits SIDEBAR_TOGGLED to restore open state)
     injector.injectSidebar();
+
+    // 5b. Mount the React sidebar into the injected host, replacing the
+    //     placeholder vanilla controls, and bridge it to the live pipeline.
+    const sidebarController = createSidebarController({
+      getListings: () => Array.from(knownListings.values()) as AnalyzedListing[],
+      getVisibleCount: () => lastVisibleCount,
+      setActiveFilters: (configs) => {
+        activeFilters = configs;
+        storageSet(STORAGE_KEY_FILTERS, Object.fromEntries(configs)).catch(() => {});
+        applyFiltersAndSort(eventBus, filterEngine, sortEngine, manipulator, injector);
+      },
+      getSort: () => ({ id: activeSortId, direction: activeSortDirection }),
+      setSort: (id, direction) => {
+        activeSortId = id;
+        activeSortDirection = direction;
+        storageSet(STORAGE_KEY_SORT, id ? { id, direction } : null).catch(() => {});
+        applyFiltersAndSort(eventBus, filterEngine, sortEngine, manipulator, injector);
+      },
+      persistence,
+      getComparison: () => comparisonResult,
+      getComparisonTitles: () => comparisonTitles(),
+      clearComparison: () => {
+        comparisonSelection.clear();
+        recomputeComparison();
+        refreshCompareButtons();
+      },
+      subscribe: (event, handler) => eventBus.on(event, handler),
+    });
+    const sidebarMount = mountSidebar(sidebarController);
+    if (sidebarMount) cleanupFns.push(() => sidebarMount.unmount());
 
     // 6. Load persisted settings (may emit SIDEBAR_TOGGLED to reopen sidebar)
     await loadSettings(eventBus);
@@ -423,6 +679,7 @@ function applyFiltersAndSort(
 
     manipulator.showAllListings();
     manipulator.hideListings(hiddenIds);
+    lastVisibleCount = filterResult.listings.length;
 
     // Update stats to reflect filtered results
     const hasActiveFilters = activeFilters.size > 0;

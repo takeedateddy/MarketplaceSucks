@@ -114,6 +114,14 @@ export interface SellerProfile {
   readonly responseRate: number | null;
 
   /**
+   * Qualitative responsiveness description as shown by Facebook
+   * (e.g. "Very responsive"). This is what the trust scorer phrase-matches on,
+   * since Facebook exposes responsiveness as text rather than a number.
+   * `null` if unavailable.
+   */
+  readonly responseDescription: string | null;
+
+  /**
    * Typical response time in minutes. `null` if unavailable.
    *
    * @example 30  // responds within 30 minutes
@@ -187,6 +195,9 @@ export interface SellerProfileInput {
   /** @see SellerProfile.responseRate */
   readonly responseRate?: number | null;
 
+  /** @see SellerProfile.responseDescription */
+  readonly responseDescription?: string | null;
+
   /** @see SellerProfile.responseTime */
   readonly responseTime?: number | null;
 
@@ -251,6 +262,7 @@ export function createSellerProfile(input: SellerProfileInput): SellerProfile {
       negativeCount: input.rating?.negativeCount ?? null,
     },
     responseRate: input.responseRate ?? null,
+    responseDescription: input.responseDescription ?? null,
     responseTime: input.responseTime ?? null,
     profileCompleteness: input.profileCompleteness ?? "unknown",
     trustScore: input.trustScore ?? null,

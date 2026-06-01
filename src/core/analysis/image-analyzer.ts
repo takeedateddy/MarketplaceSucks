@@ -111,14 +111,31 @@ export function isCommonAiAspectRatio(width: number, height: number): boolean {
  * // result.classification => 'possibly-ai'
  * ```
  */
-export function analyzeImageHeuristic(metadata: ImageMetadata): AiDetectionResult {
+/** Display name of the EXIF signal (also used to exclude it where uninformative). */
+export const NO_EXIF_SIGNAL = 'No EXIF metadata';
+
+/** Options for {@link analyzeImageHeuristic}. */
+export interface HeuristicOptions {
+  /**
+   * Signal names to exclude from the score; the remaining signals are
+   * renormalized to 0-100. Used where a signal carries no information for the
+   * source (e.g. Facebook strips EXIF from every upload, so {@link NO_EXIF_SIGNAL}
+   * would fire universally and inflate the score).
+   */
+  excludeSignals?: readonly string[];
+}
+
+export function analyzeImageHeuristic(
+  metadata: ImageMetadata,
+  options: HeuristicOptions = {},
+): AiDetectionResult {
   const signals: AiSignal[] = [];
   let totalWeight = 0;
   let triggeredWeight = 0;
 
   // Signal 1: No EXIF data (real photos usually have EXIF)
   const noExif: AiSignal = {
-    name: 'No EXIF metadata',
+    name: NO_EXIF_SIGNAL,
     description: 'Real camera photos typically contain EXIF data (camera model, exposure, etc.)',
     weight: 25,
     triggered: !metadata.hasExif,
@@ -171,6 +188,22 @@ export function analyzeImageHeuristic(metadata: ImageMetadata): AiDetectionResul
   totalWeight += uniformBg.weight;
   if (uniformBg.triggered) triggeredWeight += uniformBg.weight;
 
+  // Exclude any uninformative signals and renormalize over the rest, so the
+  // score still spans the full 0-100 range (rather than being capped by the
+  // excluded weight).
+  const excluded = new Set(options.excludeSignals ?? []);
+  if (excluded.size > 0) {
+    for (const s of signals) {
+      if (excluded.has(s.name)) {
+        totalWeight -= s.weight;
+        if (s.triggered) triggeredWeight -= s.weight;
+      }
+    }
+  }
+  const reportedSignals = excluded.size > 0
+    ? signals.filter((s) => !excluded.has(s.name))
+    : signals;
+
   // Calculate score
   const aiScore = totalWeight > 0 ? Math.round((triggeredWeight / totalWeight) * 100) : 0;
 
@@ -181,11 +214,11 @@ export function analyzeImageHeuristic(metadata: ImageMetadata): AiDetectionResul
   else classification = 'likely-ai';
 
   // Confidence based on how many signals were evaluable
-  const evaluableSignals = signals.length;
+  const evaluableSignals = reportedSignals.length;
   let confidence: 'high' | 'medium' | 'low';
   if (evaluableSignals >= 4) confidence = 'medium'; // Heuristic-only can never be "high"
   else if (evaluableSignals >= 2) confidence = 'low';
   else confidence = 'low';
 
-  return { aiScore, classification, signals, confidence };
+  return { aiScore, classification, signals: reportedSignals, confidence };
 }

@@ -2,7 +2,7 @@
 
 **Fix Facebook Marketplace's useless search. Real filters. Real sorting. Results you actually asked for.**
 
-MarketplaceSucks is a browser extension that overhauls Facebook Marketplace with 18+ advanced filters, 10 sort options, seller trust scoring, AI image detection, price intelligence, sales forecasting, and a side-by-side comparison engine -- all running **100% locally** with **zero data collection**.
+MarketplaceSucks is a browser extension that overhauls Facebook Marketplace with 18+ advanced filters, 8 sort options, seller trust scoring, AI image detection, price intelligence, sales forecasting, and a side-by-side comparison engine -- all running **100% locally** with **zero data collection**.
 
 No accounts. No API keys. No subscriptions. No data leaves your browser. Ever.
 
@@ -72,7 +72,7 @@ No accounts. No API keys. No subscriptions. No data leaves your browser. Ever.
 
 ### Sorting
 
-10 sort options to put the best results first.
+8 sort options to put the best results first.
 
 | Sort | Default Direction | Missing Data Handling |
 |------|-------------------|----------------------|
@@ -664,7 +664,7 @@ The extension is currently **100% free** and will remain open source. A future P
 | Feature | Free | Pro (Planned) |
 |---------|------|---------------|
 | 18+ filters with fuzzy matching | Yes | Yes |
-| 10 sort options | Yes | Yes |
+| 8 sort options | Yes | Yes |
 | Seller trust scoring (6-factor heuristic) | Yes | Yes |
 | Price intelligence (7-tier statistical) | Yes | Yes |
 | Image detection (heuristic, 5 signals) | Yes | Yes |

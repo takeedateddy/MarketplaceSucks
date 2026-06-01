@@ -23,6 +23,12 @@ describe('calculateTrustScore', () => {
     expect(result.dataPointCount).toBeGreaterThanOrEqual(5);
   });
 
+  it('scores response from the qualitative description', () => {
+    const result = calculateTrustScore({ responseDescription: 'Very responsive' });
+    expect(result.breakdown.response).toBe(10);
+    expect(result.factorsWithData).toContain('response');
+  });
+
   it('scores account age correctly', () => {
     // < 3 months = 0 points
     const young = calculateTrustScore({ accountAgeDays: 30 });

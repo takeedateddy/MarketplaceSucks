@@ -1,5 +1,56 @@
 import { describe, it, expect } from 'vitest';
-import { analyzeImageHeuristic, isCommonAiResolution, isCommonAiAspectRatio } from './image-analyzer';
+import {
+  analyzeImageHeuristic,
+  isCommonAiResolution,
+  isCommonAiAspectRatio,
+  NO_EXIF_SIGNAL,
+  type ImageMetadata,
+} from './image-analyzer';
+
+/** All non-EXIF signals triggered, with EXIF present (so its signal is off). */
+const PIXEL_SIGNALS_ALL_ON: ImageMetadata = {
+  width: 1024,
+  height: 1024, // common AI resolution + 1:1 aspect
+  hasExif: true,
+  hasUniformBackground: true,
+  avgSaturation: 0.5,
+  saturationStdDev: 0.05, // uniform saturation
+  isCommonAiAspectRatio: true,
+  isCommonAiResolution: true,
+};
+
+describe('analyzeImageHeuristic — excludeSignals (EXIF renormalization)', () => {
+  it('caps at ~72 when EXIF is counted but cannot trigger (default)', () => {
+    // (20+10+20+15) / 90 = 72
+    expect(analyzeImageHeuristic(PIXEL_SIGNALS_ALL_ON).aiScore).toBe(72);
+  });
+
+  it('reaches 100 when the EXIF signal is excluded and renormalized', () => {
+    const result = analyzeImageHeuristic(PIXEL_SIGNALS_ALL_ON, {
+      excludeSignals: [NO_EXIF_SIGNAL],
+    });
+    expect(result.aiScore).toBe(100);
+    expect(result.classification).toBe('likely-ai');
+    expect(result.signals.some((s) => s.name === NO_EXIF_SIGNAL)).toBe(false);
+  });
+
+  it('no longer inflates the score for a real photo with no other signals', () => {
+    const realPhoto: ImageMetadata = {
+      width: 3024,
+      height: 4032,
+      hasExif: false, // would trigger the 25-weight no-EXIF signal
+      hasUniformBackground: false,
+      avgSaturation: 0.4,
+      saturationStdDev: 0.3,
+      isCommonAiAspectRatio: false,
+      isCommonAiResolution: false,
+    };
+    expect(analyzeImageHeuristic(realPhoto).aiScore).toBe(28); // 25/90
+    expect(
+      analyzeImageHeuristic(realPhoto, { excludeSignals: [NO_EXIF_SIGNAL] }).aiScore,
+    ).toBe(0);
+  });
+});
 
 describe('isCommonAiResolution', () => {
   it('returns true for known AI resolutions', () => {
