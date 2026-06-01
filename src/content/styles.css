@@ -343,6 +343,23 @@
   color: #ffffff;
 }
 
+/* --- Forecast badges --- */
+
+.mps-badge-forecast-fast {
+  background: var(--mps-color-forecast-fast, #1a7f37);
+  color: #ffffff;
+}
+
+.mps-badge-forecast-moderate {
+  background: var(--mps-color-forecast-moderate, #9a6700);
+  color: #ffffff;
+}
+
+.mps-badge-forecast-slow {
+  background: var(--mps-color-forecast-slow, #6e7781);
+  color: #ffffff;
+}
+
 /* ==========================================================================
    Listing Visibility States
    ========================================================================== */

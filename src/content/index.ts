@@ -56,6 +56,7 @@ import { runSelectorHealthCheck } from "@/content/selector-health-checker";
 import { DetailPageEnhancer } from "@/content/detail-page-enhancer";
 import { ContentPersistence } from "@/content/persistence";
 import { analyzeListings } from "@/content/analysis-runner";
+import { buildBadges } from "@/content/badge-builder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -72,6 +73,16 @@ const STORAGE_KEY_SIDEBAR = "mps:sidebarOpen";
 
 /** Console log prefix. */
 const LOG_PREFIX = "[MPS]";
+
+/**
+ * Escape a listing id for safe use inside a CSS attribute selector.
+ * Uses the native `CSS.escape` when available, with a conservative fallback.
+ */
+function cssEscapeId(id: string): string {
+  const cssApi = (globalThis as { CSS?: { escape?: (s: string) => string } }).CSS;
+  if (cssApi?.escape) return cssApi.escape(id);
+  return id.replace(/["\\\]]/g, "\\$&");
+}
 
 // ---------------------------------------------------------------------------
 // State
@@ -203,6 +214,14 @@ async function bootstrap(): Promise<void> {
           const analyzed = await analyzeListings(listings, persistence);
           for (const a of analyzed) {
             knownListings.set(a.id, a);
+            try {
+              const card = document.querySelector(
+                `[data-mps-listing-id="${cssEscapeId(a.id)}"]`,
+              );
+              if (card) injector.injectBadge(card, buildBadges(a));
+            } catch (err) {
+              console.warn(`${LOG_PREFIX} Badge injection failed for ${a.id}:`, err);
+            }
           }
           // Record engagement snapshots *after* analysis so heat velocity
           // compares against the previous observation, not the current one.

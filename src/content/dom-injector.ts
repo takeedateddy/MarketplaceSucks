@@ -21,7 +21,7 @@
 /** Badge descriptor passed to {@link DomInjector.injectBadge}. */
 export interface BadgeDescriptor {
   /** Badge type, used for CSS class selection. */
-  readonly type: "trust" | "price" | "heat" | "image";
+  readonly type: "trust" | "price" | "heat" | "image" | "forecast";
   /** Severity / rating level within the type. */
   readonly level: string;
   /** Short text displayed inside the badge. */
