@@ -122,7 +122,7 @@ Analysis engines run in parallel with the filter/sort pipeline. Each analyzer su
 - **Related listings** (`related-listings.ts`) -- finds similar listings
 - **Image fingerprint** (`image-fingerprint.ts`) -- perceptual hashing for duplicate detection
 
-Heavy analyzers (those with `isHeavy: true`) are dispatched to Web Workers (`src/workers/`) to avoid blocking the main thread.
+Heavy work is kept off the page's main thread: price aggregation runs in the data-processing **Web Worker** (`src/workers/data-processing.worker.ts`), and image analysis (fetch + decode + heuristics) runs in the **background service worker** (`src/background/image-analysis.ts`), which can fetch cross-origin Facebook CDN images without canvas tainting. The `isHeavy` analyzer flag remains the hook for routing future heavy analyzers off-thread.
 
 ### 8. Persistence
 

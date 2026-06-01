@@ -337,6 +337,9 @@ export class DomInjector {
         badgeEl.className = `mps-badge mps-badge-${badge.type}-${badge.level}`;
         badgeEl.setAttribute("data-mps-badge-type", badge.type);
         badgeEl.setAttribute("data-mps-badge-level", badge.level);
+        // Clickable: opens the matching sidebar panel (handled via delegation).
+        badgeEl.setAttribute("role", "button");
+        badgeEl.style.cursor = "pointer";
         badgeEl.textContent = badge.label;
 
         if (badge.tooltip) {

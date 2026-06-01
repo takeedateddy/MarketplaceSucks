@@ -152,7 +152,7 @@ Detect AI-generated and suspicious listing images using **local heuristics** (no
 - Web Worker pipeline ready for TF.js model loading and inference
 - Combined scoring: 70% ML + 30% heuristic when model is available
 - Falls back to 100% heuristic when model is not loaded
-- All inference runs locally in a Web Worker -- never blocks the UI
+- All inference runs locally in the background service worker (which can fetch + decode images off the page's main thread) -- never blocks the UI
 
 ### Market Intelligence
 
@@ -201,7 +201,7 @@ Background alert system for saved search matches and price drops.
 - **Price drop alerts:** Detects price decreases ≥5% on tracked listings. Notification shows previous price, current price, and drop percentage.
 - **Badge count:** Red badge on extension icon shows unread notification count.
 - **Notification click:** Opens the listing URL in a new tab.
-- **Configurable frequency:** Realtime (5 min), Hourly, Daily, or Manual.
+- **Per-search alert frequency:** choose Realtime, Hourly, Daily, or Manual on each saved search (Manual disables its alerts; the background worker runs its check on a fixed interval).
 - **Notification panel:** Sidebar panel showing notification history with read/unread state, type badges (New Match / Price Drop), and time-ago formatting.
 
 ### Selector Health Monitoring
@@ -225,7 +225,7 @@ Facebook changes their DOM frequently, which can break the extension's CSS selec
   - `Alt+F` -- Focus keyword filter input
   - `Alt+C` -- Clear all active filters
 - **First-time onboarding** -- 3-step walkthrough on first install (toggle button, filters, intelligence features)
-- **All data stored locally** -- IndexedDB stores for listings, sellers, image hashes, price data, engagement snapshots, seen listings, and saved searches
+- **All data stored locally** -- IndexedDB stores for listings, sellers, image hashes, price data, engagement snapshots, and seen listings; saved searches, settings, and notification history live in chrome.storage.local
 - **Dark mode** -- automatic detection of Facebook's dark mode with full theme switching
 
 ---
@@ -761,7 +761,7 @@ Enable notifications on a saved search to receive browser alerts when new matchi
 
 ## Privacy
 
-**MarketplaceSucks collects no data.** There are no analytics, no tracking pixels, no external API calls, and no remote servers. Every computation runs locally in your browser. All persisted data (listing history, saved searches, seen tracking, price history, engagement snapshots) is stored in your browser's IndexedDB and never leaves your machine.
+**MarketplaceSucks collects no data.** There are no analytics, no tracking pixels, no external API calls, and no remote servers. Every computation runs locally in your browser. All persisted data (listing history, price history, engagement snapshots, seen tracking in IndexedDB; saved searches, settings, and notifications in chrome.storage.local) is stored locally in your browser and never leaves your machine.
 
 | What | Where | Shared? |
 |------|-------|---------|
@@ -769,7 +769,7 @@ Enable notifications on a saved search to receive browser alerts when new matchi
 | Listings | IndexedDB | No |
 | Seller profiles | IndexedDB | No |
 | Price history | IndexedDB | No |
-| Saved searches | IndexedDB | No |
+| Saved searches | chrome.storage.local | No |
 | Image hashes | IndexedDB | No |
 | Notifications | `chrome.storage.local` | No |
 
@@ -786,22 +786,24 @@ platform/       Browser abstraction (Chrome, Firefox, Edge APIs)
 core/           Business logic (filters, sorters, analyzers, models, interfaces, utils)
   analysis/     Seller trust, price rating, image detection, heat tracking,
                 sales forecasting, comparison, notifications, selector health, ML detector
-  filters/      10 filter implementations + engine + registry
+  filters/      9 filter implementations + engine + registry
   sorters/      8 sorter implementations + engine + registry
   models/       Listing, Seller, Engagement, PriceData, SavedSearch, AnalyzedListing
   utils/        Math, text, date, similarity, event bus, perf, LRU cache, search I/O, comparison export
 content/        DOM observation, parsing, manipulation, selector config, onboarding
-data/           IndexedDB persistence (6 repositories, schema migrations)
-ui/             React sidebar (12 panels), overlays, popup, preview
+data/           IndexedDB persistence (7 repositories, schema migrations)
+ui/             React sidebar (13 panels), overlays, popup, preview
 design-system/  15 primitives, 9 composites, 3 layouts, theming, tokens
-workers/        Web Workers for image analysis + data processing
+workers/        Web Worker for off-main-thread data processing
+                (image analysis runs in the background service worker, which
+                 can fetch + decode cross-origin images without canvas tainting)
 plugins/        Plugin system for third-party extensions
 ```
 
 **Key design decisions:**
 - All `core/` modules are **pure functions** with zero browser dependencies -- trivially testable
 - Communication via **event bus** (pub/sub) -- no direct imports between layers
-- **Shadow DOM** for UI injection -- no CSS conflicts with Facebook
+- **Scoped, prefixed styles** for the injected sidebar (mounted into the page DOM via React); the onboarding overlay uses Shadow DOM for stronger isolation
 - **Web Workers** for heavy computation (image analysis, data processing)
 - **requestAnimationFrame** batching for DOM manipulation -- no layout thrashing
 - **2-second element cache** in DomManipulator for performance
@@ -812,7 +814,7 @@ For the full architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Testing
 
-The project has a comprehensive test suite with **540+ tests** across 43 test files.
+The project has a comprehensive test suite with **580+ tests** across 49 test files.
 
 ```bash
 pnpm test              # Run all tests
@@ -824,10 +826,14 @@ pnpm test:coverage     # Run with coverage (80% threshold on src/core/)
 |----------|-------|-------|----------------|
 | Utils | 7 | ~170 | Math, text, date, similarity, event bus, perf, search I/O, comparison export, LRU cache |
 | Models | 5 | 53 | Listing, seller, engagement, price data, saved search factories + validators |
-| Filters | 12 | 99 | All 10 filters + engine pipeline + registry |
+| Filters | 12 | 99 | All 9 filters + engine pipeline + registry |
 | Sorters | 3 | 24 | All 8 sorters + engine + registry |
 | Analyzers | 12 | ~145 | Trust, price, image, fingerprint, heat, forecast, comparison, related, notifications, selector health, ML detector |
-| E2E | 4 | ~50 | Selector validation against HTML fixtures, parser pipeline, dark mode detection |
+| Content | 4 | ~25 | Persistence mappers, analysis runner, badge builder, detail-page parser |
+| Plugins | 1 | 5 | Plugin manager lifecycle |
+| E2E | 3 | ~35 | Selector validation against HTML fixtures, parser pipeline, dark mode detection |
+
+(Counts are approximate; run `pnpm test` for the exact total.)
 
 **CI pipeline** runs lint + typecheck + test + build on every PR.
 

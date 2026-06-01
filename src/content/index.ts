@@ -61,6 +61,7 @@ import { createSidebarController, mountSidebar } from "@/content/sidebar-mount";
 import type { AnalyzedListing } from "@/core/models/analyzed-listing";
 import { compareListings } from "@/core/analysis/comparison-engine";
 import type { ComparisonResult } from "@/core/analysis/comparison-engine";
+import { assessOriginality } from "@/core/analysis/image-fingerprint";
 import {
   extractSellerProfile,
   extractDetailEngagement,
@@ -74,6 +75,7 @@ import { ChromeStorageAdapter } from "@/platform/chrome-storage-adapter";
 import type { ISorter } from "@/core/interfaces/sorter.interface";
 import { DataWorkerClient } from "@/content/data-worker-client";
 import { mountComparisonBar } from "@/content/comparison-bar-mount";
+import { showOnboardingIfNeeded } from "@/content/onboarding";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -138,6 +140,12 @@ function refreshCompareButtons(): void {
 
 /** All listings the extension has parsed during this page session. */
 const knownListings: Map<string, Listing> = new Map();
+
+/** First-observed result position per listing id (1-based), used for heat scoring. */
+const listingPositions: Map<string, number> = new Map();
+
+/** Running counter assigning each newly observed listing its result position. */
+let positionCounter = 0;
 
 /** Currently active filter configs. */
 let activeFilters: Map<string, Record<string, unknown>> = new Map();
@@ -288,6 +296,7 @@ async function bootstrap(): Promise<void> {
             // Track listing
             if (!knownListings.has(listing.id)) {
               knownListings.set(listing.id, listing);
+              listingPositions.set(listing.id, ++positionCounter);
               newListings.push(listing);
             }
           }
@@ -337,18 +346,38 @@ async function bootstrap(): Promise<void> {
           );
           if (dupes.length > 0 && !flags.includes("duplicate")) flags.push("duplicate");
 
+          // Originality from the signals we can derive: uniform/white background,
+          // environmental context (its inverse), multi-angle (multiple images),
+          // and duplicate count. Studio-lighting/recompression aren't detectable.
+          const originality = assessOriginality(
+            {
+              hasWhiteBackground: result.hasUniformBackground,
+              hasStudioLighting: false,
+              hasEnvironmentalContext: !result.hasUniformBackground,
+              isPartOfMultiAngleSet: listing.imageUrls.length > 1,
+              hasHighRecompression: false,
+            },
+            dupes.length,
+          );
+          const originalityScore = originality.score / 100; // store on a 0-1 scale
+
           await persistence.saveImageHash({
             hash: result.hash,
             listingId: listing.id,
             imageUrl: url,
             aiScore: result.aiScore / 100,
-            originalityScore: null,
+            originalityScore,
             flags,
             analyzedAt: new Date().toISOString(),
           });
 
           const current = (knownListings.get(listing.id) as AnalyzedListing | undefined) ?? listing;
-          const updated: AnalyzedListing = { ...current, aiImageScore: result.aiScore, imageFlags: flags };
+          const updated: AnalyzedListing = {
+            ...current,
+            aiImageScore: result.aiScore,
+            imageFlags: flags,
+            originalityScore,
+          };
           knownListings.set(listing.id, updated);
           const card = document.querySelector(`[data-mps-listing-id="${cssEscapeId(listing.id)}"]`);
           if (card) injector.injectBadge(card, buildBadges(updated));
@@ -371,7 +400,7 @@ async function bootstrap(): Promise<void> {
       async ({ listings }) => {
         try {
           await persistence.saveListings(listings);
-          const analyzed = await analyzeListings(listings, persistence);
+          const analyzed = await analyzeListings(listings, persistence, listingPositions);
           for (const a of analyzed) {
             knownListings.set(a.id, a);
             try {
@@ -381,6 +410,11 @@ async function bootstrap(): Promise<void> {
               if (card) {
                 injector.injectBadge(card, buildBadges(a));
                 injector.injectCompareButton(card, a.id, comparisonSelection.has(a.id));
+                // Mark cards seen in a previous session, then record this view.
+                if (await persistence.isSeen(a.id)) {
+                  card.setAttribute("data-mps-seen", "true");
+                }
+                void persistence.recordSeen(a);
               }
             } catch (err) {
               console.warn(`${LOG_PREFIX} Badge injection failed for ${a.id}:`, err);
@@ -474,6 +508,29 @@ async function bootstrap(): Promise<void> {
     document.addEventListener("click", onCompareClick, true);
     cleanupFns.push(() => document.removeEventListener("click", onCompareClick, true));
 
+    // Clicking an analysis badge opens the matching sidebar panel.
+    const BADGE_PANEL: Record<string, string> = {
+      trust: "trust",
+      price: "analytics",
+      heat: "heat",
+      forecast: "forecast",
+      image: "images",
+    };
+    const onBadgeClick = (e: MouseEvent): void => {
+      const target = e.target as Element | null;
+      const badge = target?.closest?.(".mps-badge");
+      if (!badge) return;
+      const type = badge.getAttribute("data-mps-badge-type");
+      const panel = type ? BADGE_PANEL[type] : undefined;
+      if (!panel) return;
+      e.preventDefault();
+      e.stopPropagation();
+      eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: true });
+      document.dispatchEvent(new CustomEvent("mps:open-panel", { detail: { panel } }));
+    };
+    document.addEventListener("click", onBadgeClick, true);
+    cleanupFns.push(() => document.removeEventListener("click", onBadgeClick, true));
+
     // 5. Inject UI elements FIRST (before loading settings, so sidebar exists
     //    when loadSettings emits SIDEBAR_TOGGLED to restore open state)
     injector.injectSidebar();
@@ -524,6 +581,13 @@ async function bootstrap(): Promise<void> {
       onCompare: () => eventBus.emit(MPS_EVENTS.SIDEBAR_TOGGLED, { open: true }),
     });
     cleanupFns.push(() => comparisonBar.unmount());
+
+    // Show the first-run onboarding walkthrough (no-op after the first install).
+    showOnboardingIfNeeded()
+      .then((dismiss) => {
+        if (dismiss) cleanupFns.push(dismiss);
+      })
+      .catch(() => {});
 
     // 6. Load persisted settings (may emit SIDEBAR_TOGGLED to reopen sidebar)
     await loadSettings(eventBus);
@@ -880,6 +944,8 @@ function teardown(): void {
   }
   cleanupFns.length = 0;
   knownListings.clear();
+  listingPositions.clear();
+  positionCounter = 0;
   activeFilters.clear();
 }
 

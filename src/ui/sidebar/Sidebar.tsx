@@ -7,7 +7,7 @@
  * @module ui/sidebar/Sidebar
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { SidebarLayout } from '@/design-system/layouts/SidebarLayout';
 import { FilterPanel } from '@/ui/sidebar/FilterPanel';
 import { SortPanel } from '@/ui/sidebar/SortPanel';
@@ -19,6 +19,8 @@ import { ComparisonView } from '@/ui/sidebar/ComparisonView';
 import { HeatMap } from '@/ui/sidebar/HeatMap';
 import { SalesForecast } from '@/ui/sidebar/SalesForecast';
 import { ListingHistory } from '@/ui/sidebar/ListingHistory';
+import { NotificationPanel } from '@/ui/sidebar/NotificationPanel';
+import { SelectorHealthPanel } from '@/ui/sidebar/SelectorHealthPanel';
 import { Settings } from '@/ui/sidebar/Settings';
 
 /** Supported sidebar tab identifiers. */
@@ -33,6 +35,8 @@ export type SidebarTabId =
   | 'heat'
   | 'forecast'
   | 'history'
+  | 'notifications'
+  | 'health'
   | 'settings';
 
 /** Tab metadata for rendering the tab bar. */
@@ -54,6 +58,8 @@ const TABS: TabMeta[] = [
   { id: 'heat', label: 'Heat', icon: '\u{1F525}' },
   { id: 'forecast', label: 'Forecast', icon: '\u{1F552}' },
   { id: 'history', label: 'History', icon: '\u{1F4C5}' },
+  { id: 'notifications', label: 'Alerts', icon: '\u{1F514}' },
+  { id: 'health', label: 'Health', icon: '\u{1FA7A}' },
   { id: 'settings', label: 'Settings', icon: '\u2699' },
 ];
 
@@ -92,6 +98,17 @@ export const SidebarTabs: React.FC<{ defaultTab?: SidebarTabId }> = ({
     setActiveTab(tabId);
   }, []);
 
+  // Allow content-script code (e.g. a clicked listing badge) to switch tabs via
+  // a DOM CustomEvent, since it lives outside the React tree.
+  useEffect(() => {
+    const onOpenPanel = (e: Event): void => {
+      const panel = (e as CustomEvent<{ panel?: SidebarTabId }>).detail?.panel;
+      if (panel && TABS.some((t) => t.id === panel)) setActiveTab(panel);
+    };
+    document.addEventListener('mps:open-panel', onOpenPanel);
+    return () => document.removeEventListener('mps:open-panel', onOpenPanel);
+  }, []);
+
   const panelMap = useMemo<Record<SidebarTabId, React.ReactNode>>(
     () => ({
       filters: <FilterPanel />,
@@ -104,6 +121,8 @@ export const SidebarTabs: React.FC<{ defaultTab?: SidebarTabId }> = ({
       heat: <HeatMap />,
       forecast: <SalesForecast />,
       history: <ListingHistory />,
+      notifications: <NotificationPanel />,
+      health: <SelectorHealthPanel />,
       settings: <Settings />,
     }),
     [],

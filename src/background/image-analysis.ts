@@ -28,6 +28,8 @@ export interface ImageAnalysisResult {
   classification: string;
   /** Names of the triggered heuristic signals. */
   flags: string[];
+  /** Whether a uniform/solid background was detected (used for originality). */
+  hasUniformBackground: boolean;
   width: number;
   height: number;
 }
@@ -135,6 +137,7 @@ export async function analyzeImageUrl(url: string): Promise<ImageAnalysisResult 
     const { data } = ctx.getImageData(0, 0, SAMPLE, SAMPLE);
 
     const { avgSaturation, saturationStdDev } = saturationStats(data);
+    const uniformBackground = hasUniformBackground(data, SAMPLE);
     const hash = computePerceptualHash(toGrayscale32(bitmap));
     bitmap.close();
 
@@ -142,7 +145,7 @@ export async function analyzeImageUrl(url: string): Promise<ImageAnalysisResult 
       width,
       height,
       hasExif,
-      hasUniformBackground: hasUniformBackground(data, SAMPLE),
+      hasUniformBackground: uniformBackground,
       avgSaturation,
       saturationStdDev,
       isCommonAiAspectRatio: isCommonAiAspectRatio(width, height),
@@ -157,6 +160,7 @@ export async function analyzeImageUrl(url: string): Promise<ImageAnalysisResult 
       aiScore: result.aiScore,
       classification: result.classification,
       flags: result.signals.filter((s) => s.triggered).map((s) => s.name),
+      hasUniformBackground: uniformBackground,
       width,
       height,
     };

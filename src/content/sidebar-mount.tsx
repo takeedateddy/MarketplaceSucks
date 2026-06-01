@@ -25,6 +25,7 @@ import {
   type SavedSearchItem,
   type SettingsState,
   type HistoryEntry,
+  type NotificationFrequency,
 } from "@/ui/sidebar/sidebar-context";
 import type { AnalyzedListing } from "@/core/models/analyzed-listing";
 import type { ComparisonResult } from "@/core/analysis/comparison-engine";
@@ -182,7 +183,12 @@ export function createSidebarController(deps: SidebarMountDeps): SidebarControll
   };
 
   async function loadStored(): Promise<StoredSavedSearch[]> {
-    return storageGet<StoredSavedSearch[]>(SAVED_SEARCHES_KEY, []);
+    const list = await storageGet<StoredSavedSearch[]>(SAVED_SEARCHES_KEY, []);
+    // Backfill `frequency` for searches saved before it was a first-class field.
+    return list.map((s) => ({
+      ...s,
+      frequency: s.frequency ?? (s.notifications?.frequency as NotificationFrequency) ?? "daily",
+    }));
   }
   async function saveStored(list: StoredSavedSearch[]): Promise<StoredSavedSearch[]> {
     await storageSet(SAVED_SEARCHES_KEY, list);
@@ -212,6 +218,7 @@ export function createSidebarController(deps: SidebarMountDeps): SidebarControll
         createdAt: Date.now(),
         lastRunAt: null,
         resultCount: deps.getVisibleCount(),
+        frequency: "daily",
         filters: currentFilterState,
         sortId: deps.getSort().id,
         sortDirection: deps.getSort().direction,
@@ -227,6 +234,21 @@ export function createSidebarController(deps: SidebarMountDeps): SidebarControll
       const list = await loadStored();
       return saveStored(
         list.map((s) => (s.id === id ? { ...s, isPinned: !s.isPinned } : s)),
+      );
+    },
+    async setSavedSearchFrequency(id: string, frequency: NotificationFrequency) {
+      const list = await loadStored();
+      return saveStored(
+        list.map((s) =>
+          s.id === id
+            ? {
+                ...s,
+                frequency,
+                // "manual" disables background alerts; anything else enables them.
+                notifications: { enabled: frequency !== "manual", frequency },
+              }
+            : s,
+        ),
       );
     },
     runSavedSearch(item: SavedSearchItem) {

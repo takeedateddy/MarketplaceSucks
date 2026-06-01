@@ -67,6 +67,7 @@ export async function analyzeListing(
   listing: Listing,
   dataSource: AnalysisDataSource,
   sellerProfile?: Partial<SellerProfile>,
+  searchPosition: number | null = null,
 ): Promise<AnalyzedListing> {
   const fields: AnalysisFields = {};
 
@@ -127,7 +128,7 @@ export async function analyzeListing(
     const heat = calculateHeatScore({
       engagement,
       previousEngagement: previous,
-      searchPosition: null,
+      searchPosition,
       postedDate: listing.parsedDate !== null ? new Date(listing.parsedDate) : null,
     });
     heatScore = heat.score;
@@ -172,11 +173,17 @@ function isWeekend(parsedDate: number | null): boolean {
 export async function analyzeListings(
   listings: Listing[],
   dataSource: AnalysisDataSource,
+  positions?: ReadonlyMap<string, number>,
 ): Promise<AnalyzedListing[]> {
   return Promise.all(
     listings.map(async (listing) => {
       try {
-        return await analyzeListing(listing, dataSource);
+        return await analyzeListing(
+          listing,
+          dataSource,
+          undefined,
+          positions?.get(listing.id) ?? null,
+        );
       } catch {
         return listing as AnalyzedListing;
       }
