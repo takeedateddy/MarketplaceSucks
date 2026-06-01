@@ -40,6 +40,9 @@ import { PriceFilter } from "@/core/filters/price-filter";
 import { ConditionFilter } from "@/core/filters/condition-filter";
 import { DistanceFilter } from "@/core/filters/distance-filter";
 import { DateFilter } from "@/core/filters/date-filter";
+import { SellerTrustFilter } from "@/core/filters/seller-trust-filter";
+import { PriceRatingFilter } from "@/core/filters/price-rating-filter";
+import { ImageFlagFilter } from "@/core/filters/image-flag-filter";
 import { sortRegistry } from "@/core/sorters/sort-registry";
 import { ALL_SORTERS } from "@/core/sorters/sorters";
 import { SortEngine } from "@/core/sorters/sort-engine";
@@ -51,6 +54,8 @@ import { DomInjector } from "@/content/dom-injector";
 import { DomManipulator } from "@/content/dom-manipulator";
 import { runSelectorHealthCheck } from "@/content/selector-health-checker";
 import { DetailPageEnhancer } from "@/content/detail-page-enhancer";
+import { ContentPersistence } from "@/content/persistence";
+import { analyzeListings } from "@/content/analysis-runner";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -119,6 +124,9 @@ async function bootstrap(): Promise<void> {
     filterRegistry.register(new ConditionFilter() as unknown as IFilter);
     filterRegistry.register(new DistanceFilter() as unknown as IFilter);
     filterRegistry.register(new DateFilter() as unknown as IFilter);
+    filterRegistry.register(new SellerTrustFilter() as unknown as IFilter);
+    filterRegistry.register(new PriceRatingFilter() as unknown as IFilter);
+    filterRegistry.register(new ImageFlagFilter() as unknown as IFilter);
     console.log(`${LOG_PREFIX} Registered ${filterRegistry.size} filters`);
 
     // Register all sorters
@@ -137,6 +145,12 @@ async function bootstrap(): Promise<void> {
     const injector = new DomInjector();
     const manipulator = new DomManipulator();
     const detailEnhancer = new DetailPageEnhancer();
+
+    // Persistence layer (IndexedDB). Best-effort: if it fails to open, the
+    // pipeline still runs, just without comparables/history.
+    const persistence = new ContentPersistence();
+    await persistence.init();
+    cleanupFns.push(() => persistence.close());
 
     // 4. Wire the event flow
     //    Observer detects new DOM nodes -> Parser extracts Listing data ->
@@ -177,10 +191,29 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    // When listings are parsed, apply filters and sorts
+    // When listings are parsed: persist them, run analysis (price rating, heat,
+    // forecast), fold the enriched listings back into `knownListings`, then
+    // apply filters/sorts. Newly parsed listings are visible by default, so
+    // there is no blank period while the async IndexedDB work completes.
     eventBus.on<{ listings: Listing[]; total: number }>(
       MPS_EVENTS.LISTINGS_PARSED,
-      () => {
+      async ({ listings }) => {
+        try {
+          await persistence.saveListings(listings);
+          const analyzed = await analyzeListings(listings, persistence);
+          for (const a of analyzed) {
+            knownListings.set(a.id, a);
+          }
+          // Record engagement snapshots *after* analysis so heat velocity
+          // compares against the previous observation, not the current one.
+          await persistence.saveEngagement(listings);
+          eventBus.emit(MPS_EVENTS.ANALYSIS_COMPLETE, {
+            count: analyzed.length,
+            total: knownListings.size,
+          });
+        } catch (err) {
+          console.warn(`${LOG_PREFIX} Analysis/persistence error:`, err);
+        }
         applyFiltersAndSort(eventBus, filterEngine, sortEngine, manipulator, injector);
       },
     );
