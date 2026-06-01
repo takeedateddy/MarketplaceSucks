@@ -67,6 +67,11 @@ import {
   buildSellerRecord,
 } from "@/content/detail-page-parser";
 import type { ImageAnalysisResult } from "@/background/image-analysis";
+import { PluginManager } from "@/plugins/plugin-manager";
+import type { PluginContext } from "@/plugins/plugin.interface";
+import { createBuiltinPlugins } from "@/plugins/builtin";
+import { ChromeStorageAdapter } from "@/platform/chrome-storage-adapter";
+import type { ISorter } from "@/core/interfaces/sorter.interface";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -227,6 +232,23 @@ async function bootstrap(): Promise<void> {
       } catch (err) {
         console.warn(`${LOG_PREFIX} Detail-page parse failed:`, err);
       }
+    });
+
+    // Plugin system: register bundled plugins with a context that exposes the
+    // event bus, storage, and the filter/sorter registries so plugins can
+    // extend the pipeline.
+    const pluginManager = new PluginManager();
+    const pluginContext: PluginContext = {
+      events: eventBus,
+      storage: new ChromeStorageAdapter(),
+      registerFilter: (filter) => filterRegistry.register(filter as IFilter),
+      registerSorter: (sorter) => sortRegistry.register(sorter as ISorter),
+    };
+    for (const plugin of createBuiltinPlugins()) {
+      await pluginManager.register(plugin, pluginContext);
+    }
+    cleanupFns.push(() => {
+      void pluginManager.teardownAll();
     });
 
     // Enforce data-retention settings so IndexedDB stays bounded.
