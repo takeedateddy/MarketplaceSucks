@@ -168,6 +168,16 @@ async function bootstrap(): Promise<void> {
     await persistence.init();
     cleanupFns.push(() => persistence.close());
 
+    // Enforce data-retention settings so IndexedDB stays bounded.
+    storageGet<{ historyRetentionDays?: number; priceDataRetentionDays?: number }>(
+      "mps:settings",
+      {},
+    )
+      .then((s) =>
+        persistence.cleanup(s.historyRetentionDays ?? 30, s.priceDataRetentionDays ?? 90),
+      )
+      .catch(() => {});
+
     // 4. Wire the event flow
     //    Observer detects new DOM nodes -> Parser extracts Listing data ->
     //    EventBus broadcasts -> Filters/Sorters run -> DomManipulator updates DOM

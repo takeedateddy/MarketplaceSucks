@@ -371,6 +371,26 @@ export class ContentPersistence implements AnalysisDataSource {
     }
   }
 
+  /**
+   * Delete persisted data older than the configured retention windows. Keeps
+   * IndexedDB bounded so a heavy browsing history doesn't grow without limit.
+   * Best-effort; never throws.
+   */
+  async cleanup(historyDays: number, priceDataDays: number): Promise<void> {
+    if (!this.ready) return;
+    const cutoff = (days: number): string =>
+      new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const historyCutoff = cutoff(historyDays);
+      await this.listings?.deleteOlderThan(historyCutoff);
+      await this.engagement?.deleteOlderThan(historyCutoff);
+      await this.imageHashes?.deleteOlderThan(historyCutoff);
+      await this.prices?.deleteOlderThan(cutoff(priceDataDays));
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Retention cleanup failed:`, err);
+    }
+  }
+
   /** Close the database connection. */
   close(): void {
     this.adapter?.close();
