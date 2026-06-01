@@ -132,9 +132,6 @@ export function extractDetailEngagement(
  * (flat) {@link SellerRecord}. Pure -- unit-tested.
  */
 export function buildSellerRecord(parsed: ParsedSellerProfile): SellerRecord {
-  // calculateTrustScore stringifies `responseRate` for phrase matching ("very
-  // responsive", etc.), so we feed the response text through that field even
-  // though the domain type nominally types it as a number.
   const domain: Partial<DomainSellerProfile> = {
     accountAgeDays: parsed.accountAgeDays,
     rating: {
@@ -146,7 +143,7 @@ export function buildSellerRecord(parsed: ParsedSellerProfile): SellerRecord {
     profileImageUrl: parsed.profileImageUrl,
     location: parsed.location,
     activeListings: parsed.activeListings,
-    responseRate: parsed.responseText as unknown as number | null,
+    responseDescription: parsed.responseText,
   };
   const trust = calculateTrustScore(domain);
 

@@ -15,6 +15,7 @@ import {
   analyzeImageHeuristic,
   isCommonAiResolution,
   isCommonAiAspectRatio,
+  NO_EXIF_SIGNAL,
   type ImageMetadata,
 } from "@/core/analysis/image-analyzer";
 import { computePerceptualHash } from "@/core/analysis/image-fingerprint";
@@ -33,6 +34,30 @@ export interface ImageAnalysisResult {
 
 /** Sample resolution used for saturation / background analysis. */
 const SAMPLE = 64;
+
+/**
+ * Detect whether a JPEG carries an EXIF (APP1) segment by scanning the header.
+ * Reliable enough for the heuristic; non-JPEG formats report false.
+ */
+function jpegHasExif(buffer: ArrayBuffer): boolean {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return false; // not JPEG
+  let offset = 2;
+  // Walk APPn marker segments looking for APP1 (0xFFE1) "Exif".
+  while (offset + 4 < bytes.length && bytes[offset] === 0xff) {
+    const marker = bytes[offset + 1];
+    const size = (bytes[offset + 2] << 8) + bytes[offset + 3];
+    if (marker === 0xe1) {
+      const e = offset + 4;
+      if (bytes[e] === 0x45 && bytes[e + 1] === 0x78 && bytes[e + 2] === 0x69 && bytes[e + 3] === 0x66) {
+        return true; // "Exif"
+      }
+    }
+    if (marker === 0xda || size <= 0) break; // start of scan / malformed
+    offset += 2 + size;
+  }
+  return false;
+}
 
 /** Compute average + std-dev of per-pixel saturation (HSV) from RGBA data. */
 function saturationStats(data: Uint8ClampedArray): {
@@ -93,7 +118,9 @@ export async function analyzeImageUrl(url: string): Promise<ImageAnalysisResult 
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
-    const blob = await res.blob();
+    const buffer = await res.arrayBuffer();
+    const hasExif = jpegHasExif(buffer);
+    const blob = new Blob([buffer]);
     const bitmap = await createImageBitmap(blob);
     const width = bitmap.width;
     const height = bitmap.height;
@@ -114,10 +141,7 @@ export async function analyzeImageUrl(url: string): Promise<ImageAnalysisResult 
     const metadata: ImageMetadata = {
       width,
       height,
-      // Facebook strips EXIF from every upload, so a missing-EXIF signal would
-      // fire for all images and inflate the score — neutralize it by reporting
-      // EXIF as present and letting the pixel-based signals carry the result.
-      hasExif: true,
+      hasExif,
       hasUniformBackground: hasUniformBackground(data, SAMPLE),
       avgSaturation,
       saturationStdDev,
@@ -125,7 +149,9 @@ export async function analyzeImageUrl(url: string): Promise<ImageAnalysisResult 
       isCommonAiResolution: isCommonAiResolution(width, height),
     };
 
-    const result = analyzeImageHeuristic(metadata);
+    // Facebook strips EXIF from every upload, so the no-EXIF signal carries no
+    // information here — exclude it and renormalize over the pixel-based signals.
+    const result = analyzeImageHeuristic(metadata, { excludeSignals: [NO_EXIF_SIGNAL] });
     return {
       hash,
       aiScore: result.aiScore,
