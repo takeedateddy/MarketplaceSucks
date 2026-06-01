@@ -9,6 +9,7 @@ import { analyzeListing, analyzeListings } from "@/content/analysis-runner";
 function fakeSource(opts: {
   comparables?: number[];
   previousEngagement?: EngagementSnapshot | null;
+  sellerTrustScore?: number | null;
 }): AnalysisDataSource {
   return {
     async getComparablePrices() {
@@ -16,6 +17,9 @@ function fakeSource(opts: {
     },
     async getPreviousEngagement() {
       return opts.previousEngagement ?? null;
+    },
+    async getSellerTrustScore() {
+      return opts.sellerTrustScore ?? null;
     },
   };
 }

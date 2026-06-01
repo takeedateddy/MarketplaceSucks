@@ -35,6 +35,7 @@ import type {
   ListingRecord,
   PriceDataPoint,
   EngagementSnapshot,
+  SellerProfile,
 } from "@/data/db-schema";
 
 const LOG_PREFIX = "[MPS:persistence]";
@@ -186,6 +187,9 @@ export interface AnalysisDataSource {
 
   /** Return the most recent engagement snapshot recorded *before* this call. */
   getPreviousEngagement(listingId: string): Promise<EngagementSnapshot | null>;
+
+  /** Return a seller's cached trust score (from a visited detail page), or null. */
+  getSellerTrustScore(sellerProfileUrl: string): Promise<number | null>;
 }
 
 /**
@@ -346,6 +350,49 @@ export class ContentPersistence implements AnalysisDataSource {
     } catch (err) {
       console.warn(`${LOG_PREFIX} Failed to read comparables for ${listing.id}:`, err);
       return [];
+    }
+  }
+
+  /** Persist a scored seller profile (parsed from a detail page). */
+  async saveSeller(record: SellerProfile): Promise<void> {
+    if (!this.ready || !this.sellers) return;
+    try {
+      await this.sellers.save(record);
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Failed to persist seller ${record.id}:`, err);
+    }
+  }
+
+  /** Persist an engagement snapshot for a single listing (detail-page data). */
+  async saveDetailEngagement(
+    listingId: string,
+    engagement: { saves: number | null; comments: number | null; views: number | null },
+  ): Promise<void> {
+    if (!this.ready || !this.engagement) return;
+    try {
+      const observedAt = new Date().toISOString();
+      await this.engagement.save({
+        id: `${listingId}-${observedAt}`,
+        listingId,
+        saves: engagement.saves,
+        comments: engagement.comments,
+        views: engagement.views,
+        searchPosition: null,
+        observedAt,
+      });
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Failed to persist detail engagement for ${listingId}:`, err);
+    }
+  }
+
+  /** @inheritdoc */
+  async getSellerTrustScore(sellerProfileUrl: string): Promise<number | null> {
+    if (!this.ready || !this.sellers) return null;
+    try {
+      const seller = await this.sellers.getByUrl(sellerProfileUrl);
+      return seller?.trustScore ?? null;
+    } catch {
+      return null;
     }
   }
 

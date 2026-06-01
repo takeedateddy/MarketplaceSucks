@@ -70,11 +70,19 @@ export async function analyzeListing(
 ): Promise<AnalyzedListing> {
   const fields: AnalysisFields = {};
 
-  // --- Seller trust (only meaningful when profile factors are available) ---
+  // --- Seller trust ---
+  // Detail-page flow: a full profile was passed -> score it fresh.
+  // Grid flow: look up the trust score cached when the seller's detail page
+  // was last visited (keyed by profile URL).
   if (sellerProfile) {
     const trust = calculateTrustScore(sellerProfile);
     if (trust.confidence !== "insufficient") {
       fields.sellerTrustScore = trust.score;
+    }
+  } else if (listing.sellerProfileUrl) {
+    const cached = await dataSource.getSellerTrustScore(listing.sellerProfileUrl);
+    if (cached !== null) {
+      fields.sellerTrustScore = cached;
     }
   }
 
@@ -97,16 +105,28 @@ export async function analyzeListing(
   }
 
   // --- Heat (needs engagement; velocity needs a previous snapshot) ---
+  // Grid cards rarely expose engagement, but if the listing's detail page was
+  // visited we have a persisted snapshot to fall back on.
   let heatScore: number | null = null;
-  if (hasEngagement(listing)) {
-    const previous = await dataSource.getPreviousEngagement(listing.id);
+  let engagement = {
+    saves: listing.engagement.saves,
+    comments: listing.engagement.comments,
+    views: listing.engagement.views,
+  };
+  let previous = hasEngagement(listing)
+    ? toPreviousEngagement(await dataSource.getPreviousEngagement(listing.id))
+    : undefined;
+  if (!hasEngagement(listing)) {
+    const stored = await dataSource.getPreviousEngagement(listing.id);
+    if (stored && (stored.saves !== null || stored.comments !== null || stored.views !== null)) {
+      engagement = { saves: stored.saves, comments: stored.comments, views: stored.views };
+      previous = undefined; // single snapshot -> no velocity baseline
+    }
+  }
+  if (engagement.saves !== null || engagement.comments !== null || engagement.views !== null) {
     const heat = calculateHeatScore({
-      engagement: {
-        saves: listing.engagement.saves,
-        comments: listing.engagement.comments,
-        views: listing.engagement.views,
-      },
-      previousEngagement: toPreviousEngagement(previous),
+      engagement,
+      previousEngagement: previous,
       searchPosition: null,
       postedDate: listing.parsedDate !== null ? new Date(listing.parsedDate) : null,
     });

@@ -39,6 +39,17 @@ export class DetailPageEnhancer {
   /** Whether the enhancer is currently active. */
   private active = false;
 
+  /**
+   * Optional callback invoked once a detail page's content has loaded, with
+   * the listing id. Used by the content script to parse seller/engagement data
+   * (only available on detail pages) and persist it for grid enrichment.
+   */
+  private readonly onDetailReady?: (listingId: string) => void;
+
+  constructor(onDetailReady?: (listingId: string) => void) {
+    this.onDetailReady = onDetailReady;
+  }
+
   /** The current detail page listing ID, or `null` if not on a detail page. */
   private currentListingId: string | null = null;
 
@@ -214,6 +225,9 @@ export class DetailPageEnhancer {
     try {
       this.injectRelatedListings(listingId);
       this.injectPriceAnalysis(listingId);
+      // Let the content script parse + persist seller/engagement data that is
+      // only present on detail pages.
+      this.onDetailReady?.(listingId);
     } catch (err) {
       console.warn("[MPS] Error injecting detail page enhancements:", err);
     }

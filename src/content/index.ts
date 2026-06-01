@@ -61,6 +61,11 @@ import { createSidebarController, mountSidebar } from "@/content/sidebar-mount";
 import type { AnalyzedListing } from "@/core/models/analyzed-listing";
 import { compareListings } from "@/core/analysis/comparison-engine";
 import type { ComparisonResult } from "@/core/analysis/comparison-engine";
+import {
+  extractSellerProfile,
+  extractDetailEngagement,
+  buildSellerRecord,
+} from "@/content/detail-page-parser";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -202,13 +207,26 @@ async function bootstrap(): Promise<void> {
     const parser = new ListingParser();
     const injector = new DomInjector();
     const manipulator = new DomManipulator();
-    const detailEnhancer = new DetailPageEnhancer();
 
     // Persistence layer (IndexedDB). Best-effort: if it fails to open, the
     // pipeline still runs, just without comparables/history.
     const persistence = new ContentPersistence();
     await persistence.init();
     cleanupFns.push(() => persistence.close());
+
+    // Detail-page enhancer: when a listing detail page loads, parse the seller
+    // profile + engagement (only available there), score and persist them so
+    // grid listings from the same seller pick up trust/heat.
+    const detailEnhancer = new DetailPageEnhancer((listingId) => {
+      try {
+        const parsed = extractSellerProfile(document);
+        if (parsed) persistence.saveSeller(buildSellerRecord(parsed)).catch(() => {});
+        const engagement = extractDetailEngagement(document);
+        if (engagement) persistence.saveDetailEngagement(listingId, engagement).catch(() => {});
+      } catch (err) {
+        console.warn(`${LOG_PREFIX} Detail-page parse failed:`, err);
+      }
+    });
 
     // Enforce data-retention settings so IndexedDB stays bounded.
     storageGet<{ historyRetentionDays?: number; priceDataRetentionDays?: number }>(
