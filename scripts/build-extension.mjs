@@ -58,7 +58,7 @@ async function main() {
   console.log(`Building MarketplaceSucks for ${browser}...`);
 
   // 1. Content script (IIFE — self-contained, no imports)
-  console.log('\n[1/3] Building content script (IIFE)...');
+  console.log('\n[1/4] Building content script (IIFE)...');
   await build({
     configFile: false,
     resolve: { alias: sharedAlias },
@@ -88,7 +88,7 @@ async function main() {
   });
 
   // 2. Background service worker (IIFE)
-  console.log('\n[2/3] Building background service worker (IIFE)...');
+  console.log('\n[2/4] Building background service worker (IIFE)...');
   await build({
     configFile: false,
     resolve: { alias: sharedAlias },
@@ -106,8 +106,27 @@ async function main() {
     },
   });
 
-  // 3. Popup (ES module — loaded as HTML page)
-  console.log('\n[3/3] Building popup (ES module)...');
+  // 3. Data-processing Web Worker (IIFE — loaded via web_accessible_resources)
+  console.log('\n[3/4] Building data-processing worker (IIFE)...');
+  await build({
+    configFile: false,
+    resolve: { alias: sharedAlias },
+    define: { 'process.env.BROWSER': JSON.stringify(browser) },
+    build: {
+      outDir: resolve(rootDir, 'dist'),
+      emptyOutDir: false,
+      sourcemap: process.env.NODE_ENV === 'development',
+      lib: {
+        entry: resolve(rootDir, 'src/workers/data-processing.worker.ts'),
+        name: 'MPSDataWorker',
+        formats: ['iife'],
+        fileName: () => 'data-processing.worker.js',
+      },
+    },
+  });
+
+  // 4. Popup (ES module — loaded as HTML page)
+  console.log('\n[4/4] Building popup (ES module)...');
   await build({
     configFile: false,
     plugins: [react()],

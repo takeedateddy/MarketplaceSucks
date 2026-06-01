@@ -72,6 +72,7 @@ import type { PluginContext } from "@/plugins/plugin.interface";
 import { createBuiltinPlugins } from "@/plugins/builtin";
 import { ChromeStorageAdapter } from "@/platform/chrome-storage-adapter";
 import type { ISorter } from "@/core/interfaces/sorter.interface";
+import { DataWorkerClient } from "@/content/data-worker-client";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -251,6 +252,10 @@ async function bootstrap(): Promise<void> {
       void pluginManager.teardownAll();
     });
 
+    // Data-processing worker: offloads price aggregation from the main thread.
+    const dataWorker = new DataWorkerClient();
+    cleanupFns.push(() => dataWorker.terminate());
+
     // Enforce data-retention settings so IndexedDB stays bounded.
     storageGet<{ historyRetentionDays?: number; priceDataRetentionDays?: number }>(
       "mps:settings",
@@ -389,6 +394,14 @@ async function bootstrap(): Promise<void> {
           });
           // Fire-and-forget image analysis (no-op unless enabled in settings).
           void maybeScanImages(analyzed);
+          // Offload price-stats aggregation to the worker and persist for the popup.
+          const prices = Array.from(knownListings.values())
+            .map((l) => l.price)
+            .filter((p): p is number => p !== null && p > 0);
+          dataWorker
+            .aggregatePrices(prices)
+            .then((stats) => storageSet("mps-price-stats", stats))
+            .catch(() => {});
         } catch (err) {
           console.warn(`${LOG_PREFIX} Analysis/persistence error:`, err);
         }
