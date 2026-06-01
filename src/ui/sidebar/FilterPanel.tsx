@@ -7,11 +7,20 @@
  * @module ui/sidebar/FilterPanel
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { PanelLayout } from '@/design-system/layouts/PanelLayout';
 import { FilterGroup } from '@/design-system/composites/FilterGroup';
 import { Button } from '@/design-system/primitives/Button';
 import { useSidebarData, DEFAULT_FILTERS, type FilterState } from '@/ui/sidebar/sidebar-context';
+
+/** Read the current Marketplace search query from the page URL, if any. */
+function initialSearchQuery(): string {
+  try {
+    return new URLSearchParams(window.location.search).get('query') ?? '';
+  } catch {
+    return '';
+  }
+}
 
 const CONDITION_LABELS: Record<string, string> = {
   new: 'New',
@@ -89,6 +98,16 @@ const fieldGap: React.CSSProperties = { marginBottom: 'var(--mps-spacing-sm)' };
  */
 export const FilterPanel: React.FC<{ className?: string }> = ({ className }) => {
   const { filterState: filters, setFilterState } = useSidebarData();
+  const [searchQuery, setSearchQuery] = useState<string>(initialSearchQuery);
+
+  // Navigates Facebook to a new Marketplace search. Unlike the keyword filter
+  // (which narrows already-loaded listings), this loads a fresh result set.
+  const navigateSearch = useCallback(() => {
+    const q = searchQuery.trim();
+    if (q) {
+      window.location.href = `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(q)}`;
+    }
+  }, [searchQuery]);
 
   const updateField = useCallback(
     <K extends keyof FilterState>(field: K, value: FilterState[K]) => {
@@ -149,6 +168,27 @@ export const FilterPanel: React.FC<{ className?: string }> = ({ className }) => 
         </Button>
       }
     >
+      {/* Search Marketplace (navigates to a fresh FB search) */}
+      <div style={{ ...rowStyle, ...fieldGap }}>
+        <input
+          type="text"
+          style={inputStyle}
+          placeholder="Search Marketplace…"
+          aria-label="Search Facebook Marketplace"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              navigateSearch();
+            }
+          }}
+        />
+        <Button size="sm" onClick={navigateSearch} disabled={!searchQuery.trim()}>
+          Search
+        </Button>
+      </div>
+
       {/* Keywords */}
       <FilterGroup label="Keywords" defaultExpanded>
         <div style={fieldGap}>
