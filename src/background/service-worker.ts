@@ -7,6 +7,7 @@
  */
 
 import { browser } from '@/platform/browser';
+import { analyzeImageUrl } from '@/background/image-analysis';
 
 /** Message types for inter-component communication */
 interface ExtensionMessage {
@@ -109,6 +110,12 @@ browser.runtime.onMessage.addListener(
           }
           return undefined;
         });
+
+      case 'analyze-image': {
+        const payload = msg.payload as { url?: string } | undefined;
+        if (!payload?.url) return Promise.resolve(null);
+        return analyzeImageUrl(payload.url);
+      }
 
       case 'open-marketplace':
         return browser.tabs.create({

@@ -36,6 +36,7 @@ import type {
   PriceDataPoint,
   EngagementSnapshot,
   SellerProfile,
+  ImageHash,
 } from "@/data/db-schema";
 
 const LOG_PREFIX = "[MPS:persistence]";
@@ -382,6 +383,26 @@ export class ContentPersistence implements AnalysisDataSource {
       });
     } catch (err) {
       console.warn(`${LOG_PREFIX} Failed to persist detail engagement for ${listingId}:`, err);
+    }
+  }
+
+  /** Persist a computed image hash + analysis result. */
+  async saveImageHash(record: ImageHash): Promise<void> {
+    if (!this.ready || !this.imageHashes) return;
+    try {
+      await this.imageHashes.save(record);
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Failed to persist image hash for ${record.listingId}:`, err);
+    }
+  }
+
+  /** Return stored hashes within the duplicate threshold of the given hash. */
+  async findImageDuplicates(hash: string): Promise<ImageHash[]> {
+    if (!this.ready || !this.imageHashes) return [];
+    try {
+      return await this.imageHashes.findDuplicates(hash);
+    } catch {
+      return [];
     }
   }
 

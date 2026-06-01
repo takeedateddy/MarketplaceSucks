@@ -66,6 +66,7 @@ import {
   extractDetailEngagement,
   buildSellerRecord,
 } from "@/content/detail-page-parser";
+import type { ImageAnalysisResult } from "@/background/image-analysis";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -277,6 +278,62 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    // Optional image analysis: when enabled in settings, ask the background
+    // worker (which can fetch+decode cross-origin fbcdn images without canvas
+    // tainting) to score each listing's first image, then persist + badge it.
+    const requestedImageUrls = new Set<string>();
+    const maybeScanImages = async (listings: AnalyzedListing[]): Promise<void> => {
+      let settings: { autoScanImages?: boolean };
+      try {
+        settings = await storageGet<{ autoScanImages?: boolean }>("mps:settings", {});
+      } catch {
+        return;
+      }
+      if (!settings.autoScanImages) return;
+
+      let changed = false;
+      for (const listing of listings) {
+        const url = listing.imageUrls[0];
+        if (!url || requestedImageUrls.has(url)) continue;
+        requestedImageUrls.add(url);
+        try {
+          const result = (await browser.runtime.sendMessage({
+            action: "analyze-image",
+            payload: { url },
+          })) as ImageAnalysisResult | null;
+          if (!result) continue;
+
+          const flags = [...result.flags];
+          const dupes = (await persistence.findImageDuplicates(result.hash)).filter(
+            (d) => d.listingId !== listing.id,
+          );
+          if (dupes.length > 0 && !flags.includes("duplicate")) flags.push("duplicate");
+
+          await persistence.saveImageHash({
+            hash: result.hash,
+            listingId: listing.id,
+            imageUrl: url,
+            aiScore: result.aiScore / 100,
+            originalityScore: null,
+            flags,
+            analyzedAt: new Date().toISOString(),
+          });
+
+          const current = (knownListings.get(listing.id) as AnalyzedListing | undefined) ?? listing;
+          const updated: AnalyzedListing = { ...current, aiImageScore: result.aiScore, imageFlags: flags };
+          knownListings.set(listing.id, updated);
+          const card = document.querySelector(`[data-mps-listing-id="${cssEscapeId(listing.id)}"]`);
+          if (card) injector.injectBadge(card, buildBadges(updated));
+          changed = true;
+        } catch {
+          // best effort
+        }
+      }
+      if (changed) {
+        eventBus.emit(MPS_EVENTS.ANALYSIS_COMPLETE, { count: 0, total: knownListings.size });
+      }
+    };
+
     // When listings are parsed: persist them, run analysis (price rating, heat,
     // forecast), fold the enriched listings back into `knownListings`, then
     // apply filters/sorts. Newly parsed listings are visible by default, so
@@ -308,6 +365,8 @@ async function bootstrap(): Promise<void> {
             count: analyzed.length,
             total: knownListings.size,
           });
+          // Fire-and-forget image analysis (no-op unless enabled in settings).
+          void maybeScanImages(analyzed);
         } catch (err) {
           console.warn(`${LOG_PREFIX} Analysis/persistence error:`, err);
         }
