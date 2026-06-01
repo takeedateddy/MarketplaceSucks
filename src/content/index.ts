@@ -140,6 +140,12 @@ function refreshCompareButtons(): void {
 /** All listings the extension has parsed during this page session. */
 const knownListings: Map<string, Listing> = new Map();
 
+/** First-observed result position per listing id (1-based), used for heat scoring. */
+const listingPositions: Map<string, number> = new Map();
+
+/** Running counter assigning each newly observed listing its result position. */
+let positionCounter = 0;
+
 /** Currently active filter configs. */
 let activeFilters: Map<string, Record<string, unknown>> = new Map();
 
@@ -289,6 +295,7 @@ async function bootstrap(): Promise<void> {
             // Track listing
             if (!knownListings.has(listing.id)) {
               knownListings.set(listing.id, listing);
+              listingPositions.set(listing.id, ++positionCounter);
               newListings.push(listing);
             }
           }
@@ -372,7 +379,7 @@ async function bootstrap(): Promise<void> {
       async ({ listings }) => {
         try {
           await persistence.saveListings(listings);
-          const analyzed = await analyzeListings(listings, persistence);
+          const analyzed = await analyzeListings(listings, persistence, listingPositions);
           for (const a of analyzed) {
             knownListings.set(a.id, a);
             try {
@@ -911,6 +918,8 @@ function teardown(): void {
   }
   cleanupFns.length = 0;
   knownListings.clear();
+  listingPositions.clear();
+  positionCounter = 0;
   activeFilters.clear();
 }
 

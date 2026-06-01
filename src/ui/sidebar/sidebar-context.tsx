@@ -138,6 +138,9 @@ export interface HistoryEntry {
   viewCount: number;
 }
 
+/** Notification cadence for a saved search's alerts. */
+export type NotificationFrequency = "realtime" | "hourly" | "daily" | "manual";
+
 export interface SavedSearchItem {
   id: string;
   name: string;
@@ -146,6 +149,8 @@ export interface SavedSearchItem {
   createdAt: number;
   lastRunAt: number | null;
   resultCount: number | null;
+  /** Alert cadence; "manual" disables background alerts for this search. */
+  frequency: NotificationFrequency;
 }
 
 export interface SettingsState {
@@ -204,6 +209,7 @@ export interface SidebarController {
   addSavedSearch(name: string): Promise<SavedSearchItem[]>;
   deleteSavedSearch(id: string): Promise<SavedSearchItem[]>;
   togglePinSavedSearch(id: string): Promise<SavedSearchItem[]>;
+  setSavedSearchFrequency(id: string, frequency: NotificationFrequency): Promise<SavedSearchItem[]>;
   runSavedSearch(item: SavedSearchItem): void;
   exportSavedSearches(): Promise<string>;
   importSavedSearches(json: string): Promise<SavedSearchItem[]>;
@@ -324,6 +330,7 @@ export interface SidebarData {
   addSavedSearch: (name: string) => void;
   deleteSavedSearch: (id: string) => void;
   togglePinSavedSearch: (id: string) => void;
+  setSavedSearchFrequency: (id: string, frequency: NotificationFrequency) => void;
   runSavedSearch: (item: SavedSearchItem) => void;
   exportSavedSearches: () => Promise<string>;
   importSavedSearches: (json: string) => void;
@@ -547,6 +554,12 @@ export const SidebarDataProvider: React.FC<SidebarDataProviderProps> = ({
     },
     [controller],
   );
+  const setSavedSearchFrequency = useCallback(
+    (id: string, frequency: NotificationFrequency) => {
+      controller.setSavedSearchFrequency(id, frequency).then(setSavedSearches);
+    },
+    [controller],
+  );
   const runSavedSearch = useCallback(
     (item: SavedSearchItem) => controller.runSavedSearch(item),
     [controller],
@@ -593,6 +606,7 @@ export const SidebarDataProvider: React.FC<SidebarDataProviderProps> = ({
     addSavedSearch,
     deleteSavedSearch,
     togglePinSavedSearch,
+    setSavedSearchFrequency,
     runSavedSearch,
     exportSavedSearches,
     importSavedSearches,

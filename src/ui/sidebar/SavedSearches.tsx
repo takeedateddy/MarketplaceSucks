@@ -32,6 +32,7 @@ export const SavedSearches: React.FC<SavedSearchesProps> = ({ className }) => {
     addSavedSearch,
     deleteSavedSearch,
     togglePinSavedSearch,
+    setSavedSearchFrequency,
     runSavedSearch,
     exportSavedSearches,
     importSavedSearches,
@@ -173,7 +174,31 @@ export const SavedSearches: React.FC<SavedSearchesProps> = ({ className }) => {
                   {search.resultCount != null && ` \u00B7 ${search.resultCount} results`}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 'var(--mps-spacing-xxs)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--mps-spacing-xxs)' }}>
+                <select
+                  aria-label="Alert frequency"
+                  title="Alert frequency"
+                  value={search.frequency}
+                  onChange={(e) =>
+                    setSavedSearchFrequency(
+                      search.id,
+                      e.target.value as 'realtime' | 'hourly' | 'daily' | 'manual',
+                    )
+                  }
+                  style={{
+                    fontSize: 'var(--mps-font-size-xs)',
+                    padding: '2px 4px',
+                    border: 'var(--mps-border-width-thin) solid var(--mps-color-border)',
+                    borderRadius: 'var(--mps-radius-sm)',
+                    background: 'var(--mps-color-surface)',
+                    color: 'var(--mps-color-text-primary)',
+                  }}
+                >
+                  <option value="realtime">Realtime</option>
+                  <option value="hourly">Hourly</option>
+                  <option value="daily">Daily</option>
+                  <option value="manual">Manual</option>
+                </select>
                 <Button variant="ghost" size="sm" onClick={() => runSavedSearch(search)}>Load</Button>
                 <Button variant="ghost" size="sm" onClick={() => togglePinSavedSearch(search.id)}>
                   {search.isPinned ? 'Unpin' : 'Pin'}
