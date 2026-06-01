@@ -381,6 +381,12 @@
   background: var(--mps-color-primary, #0866ff);
 }
 
+/* --- Already-seen listings (subtle dim) --- */
+
+[data-mps-listing-id][data-mps-seen="true"] {
+  opacity: 0.65;
+}
+
 /* ==========================================================================
    Listing Visibility States
    ========================================================================== */

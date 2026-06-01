@@ -389,6 +389,11 @@ async function bootstrap(): Promise<void> {
               if (card) {
                 injector.injectBadge(card, buildBadges(a));
                 injector.injectCompareButton(card, a.id, comparisonSelection.has(a.id));
+                // Mark cards seen in a previous session, then record this view.
+                if (await persistence.isSeen(a.id)) {
+                  card.setAttribute("data-mps-seen", "true");
+                }
+                void persistence.recordSeen(a);
               }
             } catch (err) {
               console.warn(`${LOG_PREFIX} Badge injection failed for ${a.id}:`, err);

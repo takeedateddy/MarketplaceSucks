@@ -30,6 +30,7 @@ import { PriceDataRepository } from "@/data/repositories/price-data.repository";
 import { EngagementRepository } from "@/data/repositories/engagement.repository";
 import { SellerRepository } from "@/data/repositories/seller.repository";
 import { ImageHashRepository } from "@/data/repositories/image-hash.repository";
+import { SeenListingRepository } from "@/data/repositories/seen.repository";
 import type { Listing } from "@/core/models/listing";
 import type {
   ListingRecord,
@@ -37,6 +38,7 @@ import type {
   EngagementSnapshot,
   SellerProfile,
   ImageHash,
+  SeenListing,
 } from "@/data/db-schema";
 
 const LOG_PREFIX = "[MPS:persistence]";
@@ -207,6 +209,7 @@ export class ContentPersistence implements AnalysisDataSource {
   private engagement: EngagementRepository | null = null;
   private sellers: SellerRepository | null = null;
   private imageHashes: ImageHashRepository | null = null;
+  private seen: SeenListingRepository | null = null;
 
   /** Whether IndexedDB initialized successfully. */
   get ready(): boolean {
@@ -233,6 +236,7 @@ export class ContentPersistence implements AnalysisDataSource {
       this.engagement = new EngagementRepository(db);
       this.sellers = new SellerRepository(db);
       this.imageHashes = new ImageHashRepository(db);
+      this.seen = new SeenListingRepository(db);
     } catch (err) {
       console.warn(`${LOG_PREFIX} IndexedDB unavailable; persistence disabled.`, err);
       this.adapter = null;
@@ -415,6 +419,25 @@ export class ContentPersistence implements AnalysisDataSource {
     } catch {
       return null;
     }
+  }
+
+  /** Whether a listing has been seen in a previous observation/session. */
+  async isSeen(listingId: string): Promise<boolean> {
+    if (!this.ready || !this.seen) return false;
+    return this.seen.has(listingId);
+  }
+
+  /** Record a listing as seen (idempotent upsert keyed by listing id). */
+  async recordSeen(listing: Listing): Promise<void> {
+    if (!this.ready || !this.seen) return;
+    const record: SeenListing = {
+      listingId: listing.id,
+      firstSeen: new Date(listing.firstObserved).toISOString(),
+      priceAtFirstSeen: listing.price ?? 0,
+      currentPrice: listing.price,
+      trustScoreAtFirstSeen: null,
+    };
+    await this.seen.save(record);
   }
 
   /** Return the most recently observed listing records (for the history panel). */
