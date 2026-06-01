@@ -162,6 +162,7 @@ async function checkAlerts(): Promise<void> {
     'mps-price-history',
     'mps-last-alert-check',
     'mps-notification-badge-count',
+    'mps-notification-urls',
   ]);
 
   const data = result as Record<string, unknown>;
@@ -215,15 +216,18 @@ async function checkAlerts(): Promise<void> {
     }
   }
 
-  // Show browser notifications
+  // Show browser notifications, remembering each one's target URL so a click
+  // can open the right listing.
+  const urlMap: Record<string, string> = {};
   for (const n of notifications) {
     try {
       await browser.notifications?.create(n.id, {
         type: 'basic',
         title: n.title,
         message: n.body,
-        iconUrl: browser.runtime.getURL('icon-128.png'),
+        iconUrl: browser.runtime.getURL('assets/icons/icon-128.png'),
       });
+      if (n.url) urlMap[n.id] = n.url;
       badgeCount++;
     } catch (err) {
       console.warn('[MPS] Failed to create notification:', err);
@@ -240,9 +244,19 @@ async function checkAlerts(): Promise<void> {
     }
   }
 
+  // Merge new click-URLs into the persisted map (keep recent entries bounded).
+  const existingUrls = (data['mps-notification-urls'] ?? {}) as Record<string, string>;
+  const mergedUrls = { ...existingUrls, ...urlMap };
+  const urlEntries = Object.entries(mergedUrls);
+  const boundedUrls = Object.fromEntries(urlEntries.slice(-200));
+
   await browser.storage.local.set({
     'mps-last-alert-check': Date.now(),
     'mps-notification-badge-count': badgeCount,
+    'mps-notification-urls': boundedUrls,
+    // Price-drop entries are consumed once notified, so clear them to avoid
+    // re-notifying the same drop on every subsequent check.
+    'mps-price-history': [],
   });
 
   if (notifications.length > 0) {

@@ -4,7 +4,10 @@ import {
   listingToRecord,
   listingToPricePoint,
   listingToEngagementSnapshot,
+  toRecentMirror,
+  mergeRecent,
 } from "@/content/persistence";
+import type { RecentListingMirror } from "@/content/persistence";
 
 const BASE = {
   id: "42",
@@ -71,5 +74,47 @@ describe("listingToEngagementSnapshot", () => {
   it("returns null when no engagement metrics are present", () => {
     const listing = createListing({ ...BASE });
     expect(listingToEngagementSnapshot(listing)).toBeNull();
+  });
+});
+
+describe("toRecentMirror / mergeRecent", () => {
+  it("projects a listing into its compact mirror", () => {
+    const listing = createListing({ ...BASE, price: 120, firstObserved: 1000 });
+    expect(toRecentMirror(listing)).toEqual({
+      id: "42",
+      title: "Mid Century Dresser",
+      price: 120,
+      url: BASE.listingUrl,
+      firstObserved: 1000,
+    });
+  });
+
+  it("de-duplicates by id, preserving the original firstObserved", () => {
+    const existing: RecentListingMirror[] = [
+      { id: "a", title: "A", price: 1, url: "u", firstObserved: 100 },
+    ];
+    const incoming: RecentListingMirror[] = [
+      { id: "a", title: "A", price: 1, url: "u", firstObserved: 999 },
+      { id: "b", title: "B", price: 2, url: "u", firstObserved: 200 },
+    ];
+    const merged = mergeRecent(existing, incoming, 10);
+    expect(merged.map((r) => r.id)).toEqual(["a", "b"]);
+    expect(merged.find((r) => r.id === "a")?.firstObserved).toBe(100);
+  });
+
+  it("caps to the most recent entries", () => {
+    const existing: RecentListingMirror[] = Array.from({ length: 5 }, (_, i) => ({
+      id: `e${i}`,
+      title: "x",
+      price: null,
+      url: "u",
+      firstObserved: i,
+    }));
+    const incoming: RecentListingMirror[] = [
+      { id: "new", title: "new", price: null, url: "u", firstObserved: 99 },
+    ];
+    const merged = mergeRecent(existing, incoming, 3);
+    expect(merged).toHaveLength(3);
+    expect(merged[merged.length - 1].id).toBe("new");
   });
 });

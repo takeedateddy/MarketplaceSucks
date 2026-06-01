@@ -39,6 +39,62 @@ import type {
 
 const LOG_PREFIX = "[MPS:persistence]";
 
+/** chrome.storage keys read by the background alert worker. */
+const RECENT_LISTINGS_KEY = "mps-recent-listings";
+const PRICE_HISTORY_KEY = "mps-price-history";
+
+/** Maximum number of recent listings mirrored for saved-search matching. */
+const RECENT_CAP = 300;
+
+/**
+ * Compact listing shape mirrored to `chrome.storage.local` so the background
+ * service worker can match saved searches against newly seen listings.
+ */
+export interface RecentListingMirror {
+  id: string;
+  title: string;
+  price: number | null;
+  url: string;
+  /** Unix-epoch milliseconds when first observed. */
+  firstObserved: number;
+}
+
+/** A detected price drop mirrored for the background worker's drop alerts. */
+export interface PriceHistoryMirror {
+  listingId: string;
+  title: string;
+  url: string;
+  previousPrice: number;
+  currentPrice: number;
+}
+
+/** Project a listing into its compact recent-listing mirror. Pure. */
+export function toRecentMirror(listing: Listing): RecentListingMirror {
+  return {
+    id: listing.id,
+    title: listing.title,
+    price: listing.price,
+    url: listing.listingUrl,
+    firstObserved: listing.firstObserved,
+  };
+}
+
+/**
+ * Merge incoming recent-listing mirrors into the existing list, de-duplicating
+ * by id (existing entries keep their original `firstObserved`) and capping to
+ * the most recent `cap` entries. Pure.
+ */
+export function mergeRecent(
+  existing: RecentListingMirror[],
+  incoming: RecentListingMirror[],
+  cap: number,
+): RecentListingMirror[] {
+  const byId = new Map<string, RecentListingMirror>();
+  for (const r of existing) byId.set(r.id, r);
+  for (const r of incoming) if (!byId.has(r.id)) byId.set(r.id, r);
+  return Array.from(byId.values()).slice(-cap);
+}
+
 /** Convert a Unix-epoch millisecond timestamp to an ISO 8601 string. */
 function msToIso(ms: number): string {
   return new Date(ms).toISOString();
@@ -188,14 +244,73 @@ export class ContentPersistence implements AnalysisDataSource {
    */
   async saveListings(listings: Listing[]): Promise<void> {
     if (!this.ready) return;
+    const drops: PriceHistoryMirror[] = [];
     for (const listing of listings) {
       try {
+        // Detect a price drop by comparing against the previously stored record
+        // *before* it is overwritten below.
+        const previous = await this.listings?.getById(listing.id);
+        if (
+          previous &&
+          previous.price !== null &&
+          listing.price !== null &&
+          listing.price < previous.price
+        ) {
+          drops.push({
+            listingId: listing.id,
+            title: listing.title,
+            url: listing.listingUrl,
+            previousPrice: previous.price,
+            currentPrice: listing.price,
+          });
+        }
+
         await this.listings?.save(listingToRecord(listing));
         const pricePoint = listingToPricePoint(listing);
         if (pricePoint) await this.prices?.save(pricePoint);
       } catch (err) {
         console.warn(`${LOG_PREFIX} Failed to persist listing ${listing.id}:`, err);
       }
+    }
+    await this.mirrorForAlerts(listings, drops);
+  }
+
+  /**
+   * Mirror the batch into `chrome.storage.local` so the background worker can
+   * raise saved-search and price-drop notifications (the worker has no access
+   * to the page DOM or IndexedDB). Best-effort; never throws.
+   */
+  private async mirrorForAlerts(
+    listings: Listing[],
+    drops: PriceHistoryMirror[],
+  ): Promise<void> {
+    try {
+      // Imported lazily so the pure mapping helpers in this module can be unit
+      // tested without loading the webextension polyfill (which throws outside
+      // an extension context).
+      const { browser } = await import("@/platform/browser");
+      const stored = await browser.storage.local.get([
+        RECENT_LISTINGS_KEY,
+        PRICE_HISTORY_KEY,
+      ]);
+      const data = stored as Record<string, unknown>;
+
+      const existingRecent = (data[RECENT_LISTINGS_KEY] ?? []) as RecentListingMirror[];
+      const recent = mergeRecent(
+        existingRecent,
+        listings.map(toRecentMirror),
+        RECENT_CAP,
+      );
+
+      const existingHistory = (data[PRICE_HISTORY_KEY] ?? []) as PriceHistoryMirror[];
+      const history = drops.length > 0 ? [...existingHistory, ...drops] : existingHistory;
+
+      await browser.storage.local.set({
+        [RECENT_LISTINGS_KEY]: recent,
+        [PRICE_HISTORY_KEY]: history,
+      });
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Failed to mirror alert storage:`, err);
     }
   }
 
